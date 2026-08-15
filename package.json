@@ -1,0 +1,15 @@
+{
+  "name": "given",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Guess the given name. A Wordle-like daily for people's names.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node tests/engine.test.js",
+    "build": "node tests/engine.test.js",
+    "start": "python3 -m http.server 4173 --bind 127.0.0.1"
+  }
+}

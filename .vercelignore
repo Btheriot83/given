@@ -1,0 +1,7 @@
+.git
+.vercel
+scripts
+progress.html
+gauntlet.md
+*.md
+.DS_Store

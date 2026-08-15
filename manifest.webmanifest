@@ -1,0 +1,16 @@
+{
+  "name": "Given",
+  "short_name": "Given",
+  "description": "Guess the given name.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6aaa64",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
