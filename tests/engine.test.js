@@ -3,6 +3,7 @@ import {
   evaluateGuess,
   validateGuess,
   pickDailyPuzzle,
+  pickRandomPuzzle,
   pickContainLetter,
   checkHardMode,
   createGame,
@@ -18,6 +19,7 @@ import {
   dailyOrder,
   clueCandidates,
   MAX_GUESSES,
+  PLAY_LENGTH,
   dateKeyFromPuzzleNumber,
 } from "../js/engine.js";
 
@@ -78,6 +80,7 @@ for (const ch of "ETH") game = typeLetter(game, ch, 4);
 const submitted = submitGuess(game, dict);
 equal(submitted.game.status, "won", "win on beth");
 assert(shareGrid(submitted.game).includes("🟩🟩🟩🟩"), "share greens");
+assert(shareGrid(submitted.game).startsWith("GIVEN PRACTICE"), "practice share is labeled");
 assert(!shareGrid(submitted.game).includes("http"), "share has no link");
 assert(puzzleNumber("2026-01-01") === 1, "puzzle number origin");
 
@@ -92,11 +95,16 @@ for (let i = 0; i < MAX_GUESSES; i++) {
 }
 equal(loss.status, "lost", "loss at 6");
 
-const a = pickDailyPuzzle(["BETH", "EMMA", "JAMES"], { BETH: "H", EMMA: "M", JAMES: "A" }, "2026-08-13");
-const b = pickDailyPuzzle(["BETH", "EMMA", "JAMES"], { BETH: "H", EMMA: "M", JAMES: "A" }, "2026-08-13");
+const mixedAnswers = ["BETH", "JAMES", "MARIA", "SARAH", "AARON", "ELLA"];
+const mixedClues = { JAMES: "A", MARIA: "R", SARAH: "A", AARON: "R" };
+const a = pickDailyPuzzle(mixedAnswers, mixedClues, "2026-08-13");
+const b = pickDailyPuzzle(mixedAnswers, mixedClues, "2026-08-13");
 equal(a.name, b.name, "daily is stable");
-const c = pickDailyPuzzle(["BETH", "EMMA", "JAMES"], { BETH: "H", EMMA: "M", JAMES: "A" }, "2026-08-14");
-assert(a.name !== c.name || ["BETH", "EMMA", "JAMES"].length === 1, "next day moves in shuffled order");
+equal(a.length, PLAY_LENGTH, "daily uses five letters");
+const c = pickDailyPuzzle(mixedAnswers, mixedClues, "2026-08-14");
+assert(a.name !== c.name, "next day moves in shuffled order");
+equal(pickRandomPuzzle(mixedAnswers, mixedClues, () => 0).length, PLAY_LENGTH, "practice uses five letters");
+assert(names.answers.filter((name) => name.length === PLAY_LENGTH).length > 365, "five-letter pool spans a year");
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
 equal(pickContainLetter("BETH", ["BETH", "BEAH", "BOSH", "BUSH"]), "H", "contain maximizes B+H");
 
@@ -134,5 +142,8 @@ const shared = shareGrid(numbered);
 assert(shared.startsWith("GIVEN "), "share title");
 assert(shared.includes("1/6"), "share score");
 assert(!shared.includes("B · H"), "share is grid only");
+const linkedShare = shareGrid(numbered, { url: "https://given-one.vercel.app/" });
+assert(linkedShare.endsWith("https://given-one.vercel.app/"), "share includes play link");
+assert(!linkedShare.includes("BETH"), "share does not spoil the answer");
 
 console.log("engine.test.js: all passed");

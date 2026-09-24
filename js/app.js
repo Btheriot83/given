@@ -9,15 +9,20 @@ import {
   bestKeyStates,
   shareGrid,
   localDateKey,
+  puzzleNumber,
   applyStreak,
   evaluateGuess,
 } from "./engine.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
+const SHARE_URL = "https://given-one.vercel.app/";
 
 const els = {
   board: document.getElementById("board"),
+  puzzleMeta: document.getElementById("puzzleMeta"),
+  outcome: document.getElementById("outcome"),
+  finishFx: document.getElementById("finishFx"),
   keyboard: document.getElementById("keyboard"),
   startLetter: document.getElementById("startLetter"),
   containLetter: document.getElementById("containLetter"),
@@ -28,6 +33,10 @@ const els = {
   stats: document.getElementById("statsOverlay"),
   settings: document.getElementById("settingsOverlay"),
   statsRow: document.getElementById("statsRow"),
+  resultPanel: document.getElementById("resultPanel"),
+  resultKicker: document.getElementById("resultKicker"),
+  resultTitle: document.getElementById("resultTitle"),
+  resultCopy: document.getElementById("resultCopy"),
   dist: document.getElementById("dist"),
   reveal: document.getElementById("reveal"),
   darkSwitch: document.getElementById("darkSwitch"),
@@ -49,6 +58,7 @@ let toastTimer;
 let mode = "daily";
 let dailyGame = null;
 let lastFocus = null;
+let finishFxTimer;
 
 applySettings();
 buildKeyboard();
@@ -162,11 +172,29 @@ function saveDaily() {
 
 function renderAll() {
   const p = game.puzzle;
+  els.puzzleMeta.textContent = p.dateKey
+    ? `Daily #${puzzleNumber(p.dateKey)} · ${p.length} letters`
+    : `Practice · ${p.length} letters`;
   els.startLetter.textContent = p.start;
   els.containLetter.textContent = p.contain;
   els.pair.setAttribute("aria-label", `${p.start} given, ${p.contain} in the name`);
   renderBoard();
   renderKeys();
+  paintOutcome();
+}
+
+function paintOutcome() {
+  if (game.status === "playing") {
+    els.outcome.hidden = true;
+    els.outcome.textContent = "";
+    return;
+  }
+  els.outcome.hidden = false;
+  els.outcome.dataset.result = game.status;
+  const next = game.puzzle.dateKey ? "Come back tomorrow." : "Try another practice round.";
+  els.outcome.textContent = game.status === "won"
+    ? `${winWord(game.guesses.length)} ${game.guesses.length}/6 · Share your result. ${next}`
+    : `The name was ${titleCase(game.puzzle.name)}. ${next}`;
 }
 
 function renderBoard() {
@@ -235,9 +263,9 @@ function buildKeyboard() {
 }
 
 function buildHelpExample() {
-  const labels = "BEAT";
-  const show = evaluateGuess("BEAT", "BETH");
-  for (let i = 0; i < 4; i++) {
+  const labels = "JAMIE";
+  const show = evaluateGuess(labels, "JAMES");
+  for (let i = 0; i < labels.length; i++) {
     const t = document.createElement("div");
     t.className = "tile";
     t.textContent = labels[i];
@@ -285,6 +313,9 @@ function bindChrome() {
   els.practiceBtn.onclick = startPractice;
   els.todayBtn.onclick = returnToDaily;
   window.addEventListener("keydown", onKey, true);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) tickCountdown();
+  });
   setInterval(tickCountdown, 1000);
   tickCountdown();
 }
@@ -359,20 +390,24 @@ async function submit() {
   saveDaily();
   renderKeys();
   if (game.status === "won") {
-    await bounceWin();
+    await liftWin();
     recordFinish(true);
+    paintOutcome();
+    showFinishEffect("won");
     toast(winWord(game.guesses.length));
     setTimeout(() => {
       paintStats();
-      openOverlay("statsOverlay");
-    }, 900);
+      if (!document.querySelector(".overlay.open")) openOverlay("statsOverlay");
+    }, 450);
   } else if (game.status === "lost") {
     recordFinish(false);
-    toast(titleCase(game.puzzle.name), 2400);
+    paintOutcome();
+    showFinishEffect("lost");
+    toast(`The name was ${titleCase(game.puzzle.name)}`, 2400);
     setTimeout(() => {
       paintStats();
-      openOverlay("statsOverlay");
-    }, 1200);
+      if (!document.querySelector(".overlay.open")) openOverlay("statsOverlay");
+    }, 700);
   } else {
     renderBoard();
   }
@@ -390,6 +425,10 @@ function winWord(n) {
 function tickCountdown() {
   if (!els.countdown) return;
   const now = new Date();
+  if (mode === "daily" && game?.puzzle?.dateKey && game.puzzle.dateKey !== localDateKey(now) && !revealing) {
+    if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
+    bootDaily();
+  }
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   let ms = Math.max(0, next.getTime() - now.getTime());
   const h = String(Math.floor(ms / 3600000)).padStart(2, "0");
@@ -434,15 +473,36 @@ function flipRow(rowIndex, evaluation, guess) {
   });
 }
 
-function bounceWin() {
+function liftWin() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
   const row = els.board.children[game.guesses.length - 1];
   const tiles = [...row.children];
   return new Promise((resolve) => {
     tiles.forEach((tile, i) => {
-      setTimeout(() => tile.classList.add("bounce"), i * 80);
+      setTimeout(() => tile.classList.add("lift"), i * 80);
     });
     setTimeout(resolve, 700);
   });
+}
+
+function showFinishEffect(result) {
+  clearTimeout(finishFxTimer);
+  els.finishFx.replaceChildren();
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  els.finishFx.className = `finish-fx ${result}`;
+  const count = result === "won" ? 28 : 12;
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement("i");
+    piece.style.setProperty("--x", `${Math.round(5 + Math.random() * 90)}%`);
+    piece.style.setProperty("--delay", `${Math.round(Math.random() * 380)}ms`);
+    piece.style.setProperty("--drift", `${Math.round((Math.random() - 0.5) * 150)}px`);
+    piece.style.setProperty("--turn", `${Math.round((Math.random() - 0.5) * 800)}deg`);
+    els.finishFx.appendChild(piece);
+  }
+  finishFxTimer = setTimeout(() => {
+    els.finishFx.className = "finish-fx";
+    els.finishFx.replaceChildren();
+  }, 2000);
 }
 
 function toast(msg, ms = 2000) {
@@ -468,6 +528,21 @@ function recordFinish(won) {
 }
 
 function paintStats() {
+  const finished = game && game.status !== "playing";
+  els.resultPanel.hidden = !finished;
+  els.shareBtn.disabled = !finished;
+  if (finished) {
+    const won = game.status === "won";
+    const daily = Boolean(game.puzzle.dateKey);
+    els.resultPanel.dataset.result = game.status;
+    els.resultKicker.textContent = daily ? `Daily #${puzzleNumber(game.puzzle.dateKey)}` : "Practice round";
+    els.resultTitle.textContent = won ? winWord(game.guesses.length) : daily ? "One more tomorrow." : "Try again?";
+    els.resultCopy.textContent = won
+      ? `You found ${titleCase(game.puzzle.name)} in ${game.guesses.length} of 6 guesses.`
+      : daily
+        ? `Today’s name was ${titleCase(game.puzzle.name)}. A fresh puzzle arrives at midnight.`
+        : `The name was ${titleCase(game.puzzle.name)}. Start another practice round anytime.`;
+  }
   const pct = stats.played ? Math.round((100 * stats.wins) / stats.played) : 0;
   const items = [
     [stats.played, "Played"],
@@ -505,10 +580,11 @@ async function share() {
     toast("Finish a game to share");
     return;
   }
-  const text = shareGrid(game, { dark: settings.dark, colorblind: settings.colorblind });
+  const options = { dark: settings.dark, colorblind: settings.colorblind };
+  const text = shareGrid(game, { ...options, url: SHARE_URL });
   try {
     if (navigator.share) {
-      await navigator.share({ text });
+      await navigator.share({ text: shareGrid(game, options), url: SHARE_URL });
       return;
     }
   } catch (err) {
