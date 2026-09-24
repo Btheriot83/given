@@ -4,6 +4,12 @@ export const MAX_GUESSES = 6;
 export const MIN_LEN = 4;
 export const MAX_LEN = 7;
 export const PLAY_LENGTH = 5;
+export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
+
+export function normalizePracticeLength(value) {
+  const length = Number(value);
+  return PRACTICE_LENGTHS.includes(length) ? length : PLAY_LENGTH;
+}
 
 export function normalizeName(value) {
   return String(value || "")
@@ -18,7 +24,7 @@ export function isValidNameShape(name) {
 
 /**
  * Two-pass Wordle evaluation.
- * First greens consume counts, then yellows consume what remains.
+ * First correct letters consume counts, then misplaced letters consume what remains.
  */
 export function evaluateGuess(guess, secret) {
   const g = normalizeName(guess);
@@ -161,9 +167,10 @@ export function pickDailyPuzzle(answers, dateKey) {
   };
 }
 
-export function pickRandomPuzzle(answers, rng = Math.random, excludeName = null) {
-  const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
-  if (!eligible.length) throw new Error("No five-letter answers");
+export function pickRandomPuzzle(answers, rng = Math.random, excludeName = null, length = PLAY_LENGTH) {
+  if (!PRACTICE_LENGTHS.includes(length)) throw new Error("Practice length must be 5, 6, or 7");
+  const eligible = answers.filter((name) => normalizeName(name).length === length);
+  if (!eligible.length) throw new Error(`No ${length}-letter answers`);
   const fresh = eligible.filter((name) => normalizeName(name) !== normalizeName(excludeName));
   const pool = fresh.length ? fresh : eligible;
   const idx = Math.floor(rng() * pool.length);
@@ -276,15 +283,13 @@ export function submitGuess(game, guessSet, options = {}) {
   };
 }
 
-export function shareGrid(game, { dark = false, colorblind = false, url = "" } = {}) {
-  const glyphs = colorblind
-    ? { correct: "🟧", present: "🟦", absent: dark ? "⬛" : "⬜" }
-    : { correct: "🟩", present: "🟨", absent: dark ? "⬛" : "⬜" };
+export function shareGrid(game, { url = "" } = {}) {
+  const glyphs = { correct: "🟩", present: "🟥", absent: "⬛" };
   const rows = game.evaluations.map((ev) => ev.map((s) => glyphs[s]).join(""));
   const score = game.status === "won" ? String(game.guesses.length) : "X";
   const num = game.puzzle.dateKey ? puzzleNumber(game.puzzle.dateKey) : null;
   const title = num
     ? `GIVEN ${num} ${score}/${MAX_GUESSES}`
-    : `GIVEN PRACTICE ${score}/${MAX_GUESSES}`;
+    : `GIVEN PRACTICE · ${game.puzzle.length} LETTERS ${score}/${MAX_GUESSES}`;
   return [title, "", ...rows, ...(url ? ["", url] : [])].join("\n");
 }
