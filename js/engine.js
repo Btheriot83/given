@@ -224,8 +224,11 @@ export function createGame(puzzle) {
   };
 }
 
-export function migrateSavedGame(saved, puzzle) {
+export function migrateSavedGame(saved) {
   if (saved.status !== "playing" || !saved.puzzle?.start) return saved;
+  const puzzle = { ...saved.puzzle };
+  delete puzzle.start;
+  delete puzzle.contain;
   return { ...saved, puzzle, current: "" };
 }
 

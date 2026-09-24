@@ -96,12 +96,18 @@ equal(nextRow.current, "", "next guess starts empty");
 equal(nextRow.guesses, ["KATE"], "different-first-letter guess is recorded");
 
 const oldSave = { ...nextRow, puzzle: { ...puzzle, start: "B", contain: "H" }, current: "BE" };
-const migrated = migrateSavedGame(oldSave, puzzle);
+const migrated = migrateSavedGame(oldSave);
 equal(migrated.current, "", "legacy prefilled row is cleared");
 equal(migrated.guesses, ["KATE"], "legacy submitted guesses are preserved");
-equal(migrated.puzzle, puzzle, "legacy clue metadata is removed");
-equal(migrateSavedGame(migrated, puzzle), migrated, "migration is idempotent");
-equal(migrateSavedGame({ ...oldSave, status: "won" }, puzzle).current, "BE", "completed game is untouched");
+equal(migrated.puzzle, puzzle, "legacy clue metadata is removed without changing the answer");
+equal(migrateSavedGame(migrated), migrated, "migration is idempotent");
+equal(migrateSavedGame({ ...oldSave, status: "won" }).current, "BE", "completed game is untouched");
+const olderPuzzle = { name: "ROBERT", length: 6, dateKey: "2026-09-23", index: 266, start: "R", contain: "O" };
+const olderSave = { ...oldSave, puzzle: olderPuzzle, guesses: ["RONALD"], evaluations: [evaluateGuess("RONALD", "ROBERT")] };
+const olderMigrated = migrateSavedGame(olderSave);
+equal(olderMigrated.puzzle.name, "ROBERT", "migration never changes a saved six-letter answer");
+equal(olderMigrated.puzzle.length, 6, "migration preserves older board size");
+equal(olderMigrated.guesses, ["RONALD"], "migration retains prior guesses");
 
 let loss = createGame(puzzle);
 for (let i = 0; i < MAX_GUESSES; i++) {
