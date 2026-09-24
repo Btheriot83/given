@@ -175,8 +175,7 @@ function bootDaily() {
 function loadDailySave(dateKey) {
   const raw = readStore(STORAGE + ":daily", null);
   if (!raw || raw.puzzle?.dateKey !== dateKey) return null;
-  const puzzle = pickDailyPuzzle(names.answers, dateKey);
-  const migrated = migrateSavedGame(raw, puzzle);
+  const migrated = migrateSavedGame(raw);
   if (migrated !== raw) writeStore(STORAGE + ":daily", migrated);
   return migrated;
 }
