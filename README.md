@@ -15,7 +15,7 @@ Open http://127.0.0.1:4173/
 
 ## Deploy on Vercel
 
-Static HTML/CSS/JS. No environment variables.
+Static HTML/CSS/JS with one serverless endpoint for the friends board. The game itself needs no environment variables. The board uses the free Upstash for Redis resource linked to the Vercel project, which injects `KV_REST_API_URL` and `KV_REST_API_TOKEN` into Preview and Production. Do not commit either value.
 
 1. Import this repo in the Vercel dashboard (or run `npx vercel` while logged in).
 2. Framework Preset: **Other** (`framework` is already `null` in `vercel.json`).
@@ -47,4 +47,15 @@ GIVEN 266 3/6
 https://given-one.vercel.app/
 ```
 
-Compare scores there. No rooms, no leaderboard, no spoilers.
+The trophy button opens a friends board. Create an eight-character code or join one from a friend's link, choose a nickname, and finish the daily puzzle. Scores rank by fewest guesses; losses show `X/6`. Practice rounds do not count. Codes are unlisted, not a privacy or identity guarantee. There is no login, so this is for friendly competition, not a cheat-proof public contest. A device can post once per group per day; entries expire after 90 days. The score endpoint replays submitted guesses against the daily puzzle and never returns the answer.
+
+## Name notes
+
+After a name is revealed, the result view shows a short fact from the [Social Security Administration's national baby-name files](https://www.ssa.gov/oact/babynames/limits.html). Counts sum the published female and male birth records from 1880 through 2025 for that exact spelling. They are **recorded births, not the current number of living people with that name**, and exclude name/sex/year entries below the SSA's five-birth publication threshold. A missing count is shown as missing data, not as zero people.
+
+To refresh the checked-in compact data file after obtaining SSA's `names.zip`:
+
+```bash
+node scripts/build-name-notes.mjs /path/to/names.zip
+npm test
+```

@@ -4,3 +4,4 @@ node_modules
 progress.html
 gauntlet.md
 artifacts
+.env*.local

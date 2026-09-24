@@ -1,4 +1,6 @@
 import { readFileSync } from "fs";
+import { describeName } from "../js/name-notes.js";
+import { normalizeGroup, rankEntries, validDateKey, validateResult } from "../js/leaderboard-core.js";
 import {
   evaluateGuess,
   validateGuess,
@@ -24,6 +26,7 @@ import {
 } from "../js/engine.js";
 
 const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
+const nameNotes = JSON.parse(readFileSync(new URL("../data/name-notes.json", import.meta.url)));
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -145,5 +148,36 @@ assert(!shared.includes("B · H"), "share is grid only");
 const linkedShare = shareGrid(numbered, { url: "https://given-one.vercel.app/" });
 assert(linkedShare.endsWith("https://given-one.vercel.app/"), "share includes play link");
 assert(!linkedShare.includes("BETH"), "share does not spoil the answer");
+
+assert(nameNotes.source === "https://www.ssa.gov/oact/babynames/limits.html", "name facts have primary source");
+assert(nameNotes.counts.JAMES.total > 1_000_000, "common name has SSA count");
+assert(describeName("JAMES", nameNotes).includes("1880–2025"), "fact gives data window");
+assert(describeName("ZZZZZ", nameNotes).includes("does not appear"), "missing fact avoids invented count");
+assert(normalizeGroup("ABCD2345") === "ABCD2345", "invite code accepted");
+assert(normalizeGroup("BAD!CODE") === null, "invite code rejects punctuation");
+assert(validDateKey("2026-09-23", new Date("2026-09-23T12:00:00Z")), "current daily date accepted");
+assert(!validDateKey("2026-09-31", new Date("2026-09-23T12:00:00Z")), "invalid calendar date rejected");
+assert(!validDateKey("2026-08-23", new Date("2026-09-23T12:00:00Z")), "old results rejected");
+const testDate = "2026-09-23";
+const testAnswer = pickDailyPuzzle(names.answers, names.contain, testDate).name;
+const playerId = "12345678-1234-4234-8234-123456789abc";
+const payload = { group: "ABCD2345", dateKey: testDate, nickname: "Name Fan", playerId, guesses: [testAnswer] };
+const verified = validateResult(payload, names, new Date("2026-09-23T12:00:00Z"));
+assert(verified.score === 1 && verified.nickname === "Name Fan", "server replays valid win");
+for (const bad of [
+  { ...payload, guesses: ["AAAAA"] },
+  { ...payload, guesses: [] },
+  { ...payload, nickname: "<script>" },
+  { ...payload, group: "invalid!" },
+]) {
+  let rejected = false;
+  try { validateResult(bad, names, new Date("2026-09-23T12:00:00Z")); } catch { rejected = true; }
+  assert(rejected, "invalid leaderboard result rejected");
+}
+equal(rankEntries([
+  { nickname: "Lost", score: null, createdAt: 1 },
+  { nickname: "Two", score: 2, createdAt: 2 },
+  { nickname: "One", score: 1, createdAt: 3 },
+]).map((entry) => entry.nickname), ["One", "Two", "Lost"], "rank by guesses then loss");
 
 console.log("engine.test.js: all passed");

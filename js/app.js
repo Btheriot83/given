@@ -13,6 +13,8 @@ import {
   applyStreak,
   evaluateGuess,
 } from "./engine.js";
+import { describeName } from "./name-notes.js";
+import { normalizeGroup } from "./leaderboard-core.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
@@ -37,6 +39,8 @@ const els = {
   resultKicker: document.getElementById("resultKicker"),
   resultTitle: document.getElementById("resultTitle"),
   resultCopy: document.getElementById("resultCopy"),
+  nameNote: document.getElementById("nameNote"),
+  nameNoteText: document.getElementById("nameNoteText"),
   dist: document.getElementById("dist"),
   reveal: document.getElementById("reveal"),
   darkSwitch: document.getElementById("darkSwitch"),
@@ -46,6 +50,14 @@ const els = {
   practiceBtn: document.getElementById("practiceBtn"),
   todayBtn: document.getElementById("todayBtn"),
   ex1: document.getElementById("ex1"),
+  friends: document.getElementById("friendsOverlay"),
+  friendsForm: document.getElementById("friendsForm"),
+  friendsActive: document.getElementById("friendsActive"),
+  nickname: document.getElementById("nickname"),
+  groupCode: document.getElementById("groupCode"),
+  activeGroupCode: document.getElementById("activeGroupCode"),
+  friendsStatus: document.getElementById("friendsStatus"),
+  leaderboardList: document.getElementById("leaderboardList"),
 };
 
 let names = { guesses: [], answers: [], contain: {} };
@@ -59,6 +71,10 @@ let mode = "daily";
 let dailyGame = null;
 let lastFocus = null;
 let finishFxTimer;
+let nameNotesPromise;
+let friends = readStore(STORAGE + ":friends", { group: "", nickname: "", playerId: "" });
+let invitedGroup = normalizeGroup(new URLSearchParams(location.search).get("group"));
+let boardDate = localDateKey();
 
 applySettings();
 buildKeyboard();
@@ -72,6 +88,7 @@ try {
   names = data;
   guessSet = new Set(data.guesses.map((n) => n.toUpperCase()));
   bootDaily();
+  if (invitedGroup && invitedGroup !== friends.group) toast("Friend code ready — tap the trophy to join", 4000);
 } catch {
   toast("Could not load names. Refresh the page.", 8000);
 }
@@ -153,6 +170,7 @@ function bootDaily() {
   }
   dailyGame = game;
   renderAll();
+  if (game.status !== "playing" && friends.group && friends.nickname) postResult();
   if (!settings.seenHelp) openOverlay("helpOverlay");
 }
 
@@ -173,8 +191,8 @@ function saveDaily() {
 function renderAll() {
   const p = game.puzzle;
   els.puzzleMeta.textContent = p.dateKey
-    ? `Daily #${puzzleNumber(p.dateKey)} · ${p.length} letters`
-    : `Practice · ${p.length} letters`;
+    ? `Daily name #${puzzleNumber(p.dateKey)}`
+    : "Practice round";
   els.startLetter.textContent = p.start;
   els.containLetter.textContent = p.contain;
   els.pair.setAttribute("aria-label", `${p.start} given, ${p.contain} in the name`);
@@ -204,6 +222,7 @@ function renderBoard() {
   for (let r = 0; r < MAX_GUESSES; r++) {
     const row = document.createElement("div");
     row.className = "row";
+    if (r === game.guesses.length && game.status === "playing") row.classList.add("active");
     row.dataset.row = String(r);
     const filled =
       game.guesses[r] || (r === game.guesses.length && game.status === "playing" ? game.current : "");
@@ -280,6 +299,20 @@ function bindChrome() {
     paintStats();
     openOverlay("statsOverlay");
   };
+  document.getElementById("friendsBtn").onclick = openFriends;
+  document.getElementById("statsFriendsBtn").onclick = () => { closeOverlay("statsOverlay"); openFriends(); };
+  document.getElementById("createGroupBtn").onclick = () => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    els.groupCode.value = [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+  };
+  document.getElementById("copyInviteBtn").onclick = copyInvite;
+  document.getElementById("changeGroupBtn").onclick = () => {
+    els.friendsActive.hidden = true;
+    els.friendsForm.hidden = false;
+    els.groupCode.focus();
+  };
+  els.friendsForm.onsubmit = joinFriends;
   document.getElementById("settingsBtn").onclick = () => openOverlay("settingsOverlay");
   document.querySelectorAll("[data-close]").forEach((btn) => {
     btn.onclick = () => closeOverlay(btn.dataset.close);
@@ -425,6 +458,10 @@ function winWord(n) {
 function tickCountdown() {
   if (!els.countdown) return;
   const now = new Date();
+  if (boardDate !== localDateKey(now)) {
+    boardDate = localDateKey(now);
+    if (els.friends.classList.contains("open")) refreshFriends();
+  }
   if (mode === "daily" && game?.puzzle?.dateKey && game.puzzle.dateKey !== localDateKey(now) && !revealing) {
     if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
     bootDaily();
@@ -525,11 +562,102 @@ function recordFinish(won) {
   if (won) stats.dist[game.guesses.length - 1] += 1;
   saveStats();
   paintStats();
+  if (friends.group && friends.nickname) postResult();
+}
+
+function openFriends() {
+  els.nickname.value = friends.nickname || "";
+  els.groupCode.value = invitedGroup && invitedGroup !== friends.group ? invitedGroup : friends.group || "";
+  const active = Boolean(friends.group && friends.nickname && (!invitedGroup || invitedGroup === friends.group));
+  els.friendsForm.hidden = active;
+  els.friendsActive.hidden = !active;
+  openOverlay("friendsOverlay");
+  if (active) refreshFriends();
+}
+
+function joinFriends(event) {
+  event.preventDefault();
+  const group = normalizeGroup(els.groupCode.value.trim());
+  const nickname = els.nickname.value.trim().replace(/\s+/g, " ");
+  if (!group) return toast("Enter an 8-character invite code");
+  if (!/^[\p{L}\p{N} _.'-]{2,20}$/u.test(nickname)) return toast("Use 2–20 plain characters for your nickname");
+  friends = { group, nickname, playerId: friends.playerId || crypto.randomUUID() };
+  invitedGroup = group;
+  writeStore(STORAGE + ":friends", friends);
+  history.replaceState(null, "", `${location.pathname}?group=${group}`);
+  els.friendsForm.hidden = true;
+  els.friendsActive.hidden = false;
+  refreshFriends();
+  if (dailyGame?.status !== "playing") postResult();
+}
+
+function inviteUrl() {
+  return `${SHARE_URL}?group=${friends.group}`;
+}
+
+async function copyInvite() {
+  try {
+    await navigator.clipboard.writeText(inviteUrl());
+    toast("Invite link copied");
+  } catch { toast("Couldn’t copy invite"); }
+}
+
+async function refreshFriends() {
+  if (!friends.group) return;
+  els.activeGroupCode.textContent = friends.group;
+  els.friendsStatus.textContent = `Daily #${puzzleNumber(localDateKey())} · Loading scores…`;
+  els.leaderboardList.replaceChildren();
+  try {
+    const response = await fetch(`/api/leaderboard?group=${friends.group}&dateKey=${localDateKey()}`, { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Unavailable");
+    els.friendsStatus.textContent = `Daily #${puzzleNumber(localDateKey())} · ${data.entries.length} finished`;
+    if (!data.entries.length) els.friendsStatus.textContent += " · Be first to finish!";
+    let rank = 0;
+    let priorScore = -1;
+    data.entries.forEach((entry, i) => {
+      const row = document.createElement("li");
+      const place = document.createElement("b");
+      const name = document.createElement("span");
+      const score = document.createElement("strong");
+      const numericScore = entry.score ?? 7;
+      if (numericScore !== priorScore) rank = i + 1;
+      priorScore = numericScore;
+      place.textContent = String(rank);
+      name.textContent = entry.nickname;
+      score.textContent = entry.score ? `${entry.score}/6` : "X/6";
+      row.append(place, name, score);
+      els.leaderboardList.appendChild(row);
+    });
+  } catch (error) {
+    els.friendsStatus.textContent = error.message;
+  }
+}
+
+async function postResult() {
+  const finished = dailyGame?.puzzle?.dateKey === localDateKey() && dailyGame.status !== "playing";
+  if (!finished || !friends.group || !friends.nickname) return;
+  const receiptKey = `${STORAGE}:posted:${dailyGame.puzzle.dateKey}:${friends.group}:${friends.playerId}`;
+  if (readStore(receiptKey, false)) return;
+  try {
+    const response = await fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...friends, dateKey: dailyGame.puzzle.dateKey, guesses: dailyGame.guesses }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Couldn’t save result");
+    writeStore(receiptKey, true);
+    if (els.friends.classList.contains("open")) refreshFriends();
+  } catch (error) {
+    if (els.friends.classList.contains("open")) els.friendsStatus.textContent = error.message;
+  }
 }
 
 function paintStats() {
   const finished = game && game.status !== "playing";
   els.resultPanel.hidden = !finished;
+  els.nameNote.hidden = !finished;
   els.shareBtn.disabled = !finished;
   if (finished) {
     const won = game.status === "won";
@@ -542,6 +670,7 @@ function paintStats() {
       : daily
         ? `Today’s name was ${titleCase(game.puzzle.name)}. A fresh puzzle arrives at midnight.`
         : `The name was ${titleCase(game.puzzle.name)}. Start another practice round anytime.`;
+    paintNameNote(game.puzzle.name);
   }
   const pct = stats.played ? Math.round((100 * stats.wins) / stats.played) : 0;
   const items = [
@@ -575,16 +704,34 @@ function paintStats() {
   }
 }
 
+async function paintNameNote(name) {
+  els.nameNoteText.textContent = "Looking up the name…";
+  nameNotesPromise ||= fetch("./data/name-notes.json").then((response) => {
+    if (!response.ok) throw new Error("name notes");
+    return response.json();
+  });
+  try {
+    const notes = await nameNotesPromise;
+    if (game?.puzzle?.name === name && game.status !== "playing") {
+      els.nameNoteText.textContent = describeName(name, notes);
+    }
+  } catch {
+    nameNotesPromise = null;
+    if (game?.puzzle?.name === name) els.nameNoteText.textContent = "Name note unavailable right now.";
+  }
+}
+
 async function share() {
   if (!game || game.status === "playing") {
     toast("Finish a game to share");
     return;
   }
   const options = { dark: settings.dark, colorblind: settings.colorblind };
-  const text = shareGrid(game, { ...options, url: SHARE_URL });
+  const url = friends.group ? inviteUrl() : SHARE_URL;
+  const text = shareGrid(game, { ...options, url });
   try {
     if (navigator.share) {
-      await navigator.share({ text: shareGrid(game, options), url: SHARE_URL });
+      await navigator.share({ text: shareGrid(game, options), url });
       return;
     }
   } catch (err) {
