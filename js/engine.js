@@ -161,11 +161,13 @@ export function pickDailyPuzzle(answers, dateKey) {
   };
 }
 
-export function pickRandomPuzzle(answers, rng = Math.random) {
+export function pickRandomPuzzle(answers, rng = Math.random, excludeName = null) {
   const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
   if (!eligible.length) throw new Error("No five-letter answers");
-  const idx = Math.floor(rng() * eligible.length);
-  const name = normalizeName(eligible[idx]);
+  const fresh = eligible.filter((name) => normalizeName(name) !== normalizeName(excludeName));
+  const pool = fresh.length ? fresh : eligible;
+  const idx = Math.floor(rng() * pool.length);
+  const name = normalizeName(pool[idx]);
   return {
     name,
     length: name.length,

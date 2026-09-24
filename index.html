@@ -45,11 +45,18 @@
       </div>
     </header>
 
-    <div class="outcome" id="outcome" role="status" hidden></div>
+    <section class="outcome" id="outcome" aria-labelledby="outcomeTitle" hidden>
+      <div class="outcome-copy">
+        <strong class="outcome-title" id="outcomeTitle" role="status"></strong>
+        <span class="outcome-detail" id="outcomeDetail"></span>
+      </div>
+      <button class="next-name-btn" id="nextNameBtn" type="button" aria-label="Play another name"><span class="next-name-full">Play another name</span><span class="next-name-compact">Next name</span></button>
+    </section>
 
     <div class="board-wrap">
       <div class="board-heading">
         <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
+        <div class="next-day-note" id="nextDayNote" hidden>New name tomorrow</div>
       </div>
       <div class="board" id="board" role="grid" aria-label="Guesses"></div>
     </div>
@@ -99,7 +106,7 @@
         </div>
         <button class="primary" type="button" id="shareBtn">Share result</button>
       </div>
-      <button class="text-link" type="button" id="practiceBtn">Practice</button>
+      <button class="text-link" type="button" id="practiceBtn">Play another name</button>
       <button class="text-link" type="button" id="todayBtn">Today’s puzzle</button>
       <button class="text-link" type="button" id="statsFriendsBtn">See friends board</button>
     </div>

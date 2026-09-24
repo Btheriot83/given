@@ -24,7 +24,11 @@ const SHARE_URL = "https://given-one.vercel.app/";
 const els = {
   board: document.getElementById("board"),
   puzzleMeta: document.getElementById("puzzleMeta"),
+  nextDayNote: document.getElementById("nextDayNote"),
   outcome: document.getElementById("outcome"),
+  outcomeTitle: document.getElementById("outcomeTitle"),
+  outcomeDetail: document.getElementById("outcomeDetail"),
+  nextNameBtn: document.getElementById("nextNameBtn"),
   finishFx: document.getElementById("finishFx"),
   keyboard: document.getElementById("keyboard"),
   toast: document.getElementById("toast"),
@@ -191,8 +195,9 @@ function saveDaily() {
 function renderAll() {
   const p = game.puzzle;
   els.puzzleMeta.textContent = p.dateKey
-    ? `Daily name #${puzzleNumber(p.dateKey)}`
-    : "Practice round";
+    ? `Daily #${puzzleNumber(p.dateKey)}`
+    : "Practice · unranked";
+  els.nextDayNote.hidden = !(p.dateKey && game.status !== "playing");
   renderBoard();
   renderKeys();
   paintOutcome();
@@ -201,15 +206,15 @@ function renderAll() {
 function paintOutcome() {
   if (game.status === "playing") {
     els.outcome.hidden = true;
-    els.outcome.textContent = "";
     return;
   }
   els.outcome.hidden = false;
   els.outcome.dataset.result = game.status;
-  const next = game.puzzle.dateKey ? "Come back tomorrow." : "Try another practice round.";
-  els.outcome.textContent = game.status === "won"
-    ? `${winWord(game.guesses.length)} ${game.guesses.length}/6 · Share your result. ${next}`
-    : `The name was ${titleCase(game.puzzle.name)}. ${next}`;
+  els.outcomeTitle.textContent = game.status === "won"
+    ? `${winWord(game.guesses.length)} ${game.guesses.length}/6`
+    : `The name was ${titleCase(game.puzzle.name)}.`;
+  els.outcomeDetail.textContent = game.puzzle.dateKey ? "Practice · unranked" : "Another round awaits";
+  els.nextDayNote.hidden = !game.puzzle.dateKey;
 }
 
 function renderBoard() {
@@ -338,6 +343,7 @@ function bindChrome() {
   };
   els.shareBtn.onclick = share;
   els.practiceBtn.onclick = startPractice;
+  els.nextNameBtn.onclick = startPractice;
   els.todayBtn.onclick = returnToDaily;
   window.addEventListener("keydown", onKey, true);
   document.addEventListener("visibilitychange", () => {
@@ -746,8 +752,9 @@ async function share() {
 function startPractice() {
   closeOverlay("statsOverlay");
   if (mode === "daily") dailyGame = game;
+  const previousName = game?.puzzle?.name;
   mode = "practice";
-  game = createGame(pickRandomPuzzle(names.answers));
+  game = createGame(pickRandomPuzzle(names.answers, Math.random, previousName));
   renderAll();
 }
 
