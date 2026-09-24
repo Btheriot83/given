@@ -6,6 +6,7 @@ import {
   validateGuess,
   pickDailyPuzzle,
   pickRandomPuzzle,
+  normalizePracticeLength,
   checkHardMode,
   createGame,
   migrateSavedGame,
@@ -55,9 +56,9 @@ equal(validateGuess("KATE", puzzle, dict).ok, true, "no required first letter");
 assert(validateGuess("BET", puzzle, dict).reason.includes("Not enough letters"), "short");
 assert(validateGuess("BASH", puzzle, dict).reason.includes("Not in name list"), "unknown name");
 
-const yellowFail = checkHardMode("BEAU", ["BERT"], [evaluateGuess("BERT", "BETH")]);
-equal(yellowFail.ok, false, "hard mode requires yellow T");
-assert(yellowFail.reason.includes("T"), "yellow reason names T");
+const misplacedFail = checkHardMode("BEAU", ["BERT"], [evaluateGuess("BERT", "BETH")]);
+equal(misplacedFail.ok, false, "hard mode requires misplaced T");
+assert(misplacedFail.reason.includes("T"), "misplaced reason names T");
 const hard = checkHardMode("BETH", ["BERT"], [evaluateGuess("BERT", "BETH")]);
 equal(hard.ok, true, "hard mode allows beth after bert");
 
@@ -94,6 +95,7 @@ nextRow.current = "KATE";
 nextRow = submitGuess(nextRow, dict).game;
 equal(nextRow.current, "", "next guess starts empty");
 equal(nextRow.guesses, ["KATE"], "different-first-letter guess is recorded");
+assert(shareGrid(nextRow).includes("🟥") && shareGrid(nextRow).includes("⬛"), "share marks misplaced red and absent black");
 
 const oldSave = { ...nextRow, puzzle: { ...puzzle, start: "B", contain: "H" }, current: "BE" };
 const migrated = migrateSavedGame(oldSave);
@@ -126,7 +128,23 @@ const c = pickDailyPuzzle(mixedAnswers, "2026-08-14");
 assert(a.name !== c.name, "next day moves in shuffled order");
 equal(pickRandomPuzzle(mixedAnswers, () => 0).length, PLAY_LENGTH, "practice uses five letters");
 equal(pickRandomPuzzle(["LAKEN", "SARAH"], () => 0, "LAKEN").name, "SARAH", "another name differs from the prior answer");
+equal(normalizePracticeLength("6"), 6, "saved six-letter choice is restored");
+equal(normalizePracticeLength(7), 7, "seven-letter choice is accepted");
+equal(normalizePracticeLength(8), PLAY_LENGTH, "unsupported length falls back to five");
+const six = pickRandomPuzzle(["SARAH", "ROBERT", "JESSICA"], () => 0, null, 6);
+const seven = pickRandomPuzzle(["SARAH", "ROBERT", "JESSICA"], () => 0, null, 7);
+equal(six.name, "ROBERT", "six-letter practice answer is selected");
+equal(seven.name, "JESSICA", "seven-letter practice answer is selected");
+let challenge = createGame(seven);
+for (const ch of seven.name) challenge = typeLetter(challenge, ch, seven.length);
+equal(submitGuess(challenge, new Set([seven.name])).game.status, "won", "seven-letter round can be solved");
+assert(shareGrid(submitGuess(challenge, new Set([seven.name])).game).includes("7 LETTERS"), "practice share shows its length");
+let unsupportedLength = false;
+try { pickRandomPuzzle(names.answers, () => 0, null, 8); } catch { unsupportedLength = true; }
+assert(unsupportedLength, "practice does not silently choose more than seven letters");
 assert(names.answers.filter((name) => name.length === PLAY_LENGTH).length > 365, "five-letter pool spans a year");
+assert(names.answers.filter((name) => name.length === 6).length > 365, "six-letter pool supports varied practice");
+assert(names.answers.filter((name) => name.length === 7).length > 365, "seven-letter pool supports varied practice");
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
 
 const keys = bestKeyStates(["BERT"], [evaluateGuess("BERT", "BETH")]);

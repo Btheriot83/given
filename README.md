@@ -25,12 +25,12 @@ After the first deploy, the game is at `https://<project>.vercel.app/`. Share th
 
 ## Rules
 
-- 6 guesses at a five-letter first name
-- The board starts empty; every guess must be a real five-letter first name
-- Green / yellow / gray work like Wordle (including duplicate letters)
+- 6 guesses at a first name. The shared daily is five letters; unranked practice can be set to five, six, or seven letters in Settings.
+- The board starts empty; every guess must be a real first name matching that round’s length.
+- Green means the right spot, red means the wrong spot, and dark gray means the letter is absent (including duplicate-letter handling).
 - One daily puzzle per local calendar date; a missed day is replaced by the new day's name. An open tab refreshes its daily puzzle at local midnight. Practice is unlimited and does not affect the daily streak.
-- After a finished round, **Play another name** starts an unranked practice round with a different answer. It does not reset the shared daily or its friends-board score.
-- Existing in-progress daily games keep their submitted guesses and start the next row empty when upgraded from the old clue rules. Completed games and scores remain intact. New daily and practice games use five letters.
+- After a finished round, **Play another name** starts an unranked practice round with a different answer at the selected length. Changing the length applies to the next round and does not erase the current board. It does not reset the shared daily or its friends-board score.
+- Existing in-progress daily games keep their submitted guesses and start the next row empty when upgraded from the old clue rules. Completed games and scores remain intact.
 
 ## Play with friends
 
@@ -39,7 +39,7 @@ Everyone on the same local calendar date gets the same numbered daily. After you
 ```
 GIVEN 266 3/6
 
-🟩⬛🟨⬛⬛
+🟩⬛🟥⬛⬛
 🟩🟩🟩🟩🟩
 
 https://given-one.vercel.app/

@@ -57,6 +57,7 @@
       <div class="board-heading">
         <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
         <div class="next-day-note" id="nextDayNote" hidden>New name tomorrow</div>
+        <button class="practice-length-link" id="practiceLengthLink" type="button" hidden>Change length</button>
       </div>
       <div class="board" id="board" role="grid" aria-label="Guesses"></div>
     </div>
@@ -74,7 +75,7 @@
       <h2 id="helpTitle">How to play</h2>
       <p>Guess today’s five-letter first name in 6 tries.</p>
       <p>Start with any real five-letter first name. No letters are given before your first guess.</p>
-      <p>After each guess, green means the right letter in the right spot, yellow means the right letter in a different spot, and gray means the letter is not in the name.</p>
+      <p>After each guess, green means the right letter in the right spot, red means the right letter in a different spot, and dark gray means the letter is not in the name.</p>
       <p>There’s one new name each day at your local midnight. Miss a day? Just play the new one. Share your grid without spoiling the answer.</p>
       <div class="example" id="ex1"></div>
       <p class="example-caption">Example: if the answer were <b>JAMES</b>, this guess shows <b>E</b> in the wrong spot.</p>
@@ -165,6 +166,16 @@
         </div>
         <button class="switch" type="button" id="hardSwitch" aria-pressed="false" aria-label="Hard mode"><i></i></button>
       </div>
+      <fieldset class="practice-settings">
+        <legend>Practice length</legend>
+        <p>Choose the length of your next unranked round. The daily stays at five letters for everyone.</p>
+        <div class="length-options" role="group" aria-label="Practice name length">
+          <button type="button" data-practice-length="5" aria-pressed="true">5 letters</button>
+          <button type="button" data-practice-length="6" aria-pressed="false">6 letters</button>
+          <button type="button" data-practice-length="7" aria-pressed="false">7 letters</button>
+        </div>
+        <button class="primary practice-start" type="button" id="startPracticeFromSettings">Start a new 5-letter round</button>
+      </fieldset>
     </div>
   </div>
 

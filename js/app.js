@@ -1,5 +1,6 @@
 import {
   MAX_GUESSES,
+  normalizePracticeLength,
   createGame,
   migrateSavedGame,
   typeLetter,
@@ -25,6 +26,7 @@ const els = {
   board: document.getElementById("board"),
   puzzleMeta: document.getElementById("puzzleMeta"),
   nextDayNote: document.getElementById("nextDayNote"),
+  practiceLengthLink: document.getElementById("practiceLengthLink"),
   outcome: document.getElementById("outcome"),
   outcomeTitle: document.getElementById("outcomeTitle"),
   outcomeDetail: document.getElementById("outcomeDetail"),
@@ -48,6 +50,8 @@ const els = {
   darkSwitch: document.getElementById("darkSwitch"),
   cbSwitch: document.getElementById("cbSwitch"),
   hardSwitch: document.getElementById("hardSwitch"),
+  practiceLengthOptions: document.querySelectorAll("[data-practice-length]"),
+  startPracticeFromSettings: document.getElementById("startPracticeFromSettings"),
   shareBtn: document.getElementById("shareBtn"),
   practiceBtn: document.getElementById("practiceBtn"),
   todayBtn: document.getElementById("todayBtn"),
@@ -96,12 +100,15 @@ try {
 }
 
 function loadSettings() {
+  const stored = readStore(STORAGE + ":settings", {});
+  const saved = stored && typeof stored === "object" ? stored : {};
   return {
     dark: window.matchMedia("(prefers-color-scheme: dark)").matches,
     colorblind: false,
     hardMode: false,
     seenHelp: false,
-    ...readStore(STORAGE + ":settings", {}),
+    ...saved,
+    practiceLength: normalizePracticeLength(saved.practiceLength),
   };
 }
 
@@ -149,6 +156,10 @@ function applySettings() {
   toggleSwitch(els.darkSwitch, settings.dark);
   toggleSwitch(els.cbSwitch, settings.colorblind);
   toggleSwitch(els.hardSwitch, settings.hardMode);
+  for (const button of els.practiceLengthOptions) {
+    button.setAttribute("aria-pressed", String(Number(button.dataset.practiceLength) === settings.practiceLength));
+  }
+  els.startPracticeFromSettings.textContent = `Start a new ${settings.practiceLength}-letter round`;
 }
 
 function toggleSwitch(el, on) {
@@ -196,8 +207,9 @@ function renderAll() {
   const p = game.puzzle;
   els.puzzleMeta.textContent = p.dateKey
     ? `Daily #${puzzleNumber(p.dateKey)}`
-    : "Practice · unranked";
+    : `Practice · ${p.length} letters`;
   els.nextDayNote.hidden = !(p.dateKey && game.status !== "playing");
+  els.practiceLengthLink.hidden = Boolean(p.dateKey);
   renderBoard();
   renderKeys();
   paintOutcome();
@@ -213,7 +225,7 @@ function paintOutcome() {
   els.outcomeTitle.textContent = game.status === "won"
     ? `${winWord(game.guesses.length)} ${game.guesses.length}/6`
     : `The name was ${titleCase(game.puzzle.name)}.`;
-  els.outcomeDetail.textContent = game.puzzle.dateKey ? "Practice · unranked" : "Another round awaits";
+  els.outcomeDetail.textContent = `Next: ${settings.practiceLength}-letter practice`;
   els.nextDayNote.hidden = !game.puzzle.dateKey;
 }
 
@@ -313,6 +325,7 @@ function bindChrome() {
   };
   els.friendsForm.onsubmit = joinFriends;
   document.getElementById("settingsBtn").onclick = () => openOverlay("settingsOverlay");
+  els.practiceLengthLink.onclick = () => openOverlay("settingsOverlay");
   document.querySelectorAll("[data-close]").forEach((btn) => {
     btn.onclick = () => closeOverlay(btn.dataset.close);
   });
@@ -340,6 +353,18 @@ function bindChrome() {
     saveSettings();
     applySettings();
     saveDaily();
+  };
+  for (const button of els.practiceLengthOptions) {
+    button.onclick = () => {
+      settings.practiceLength = normalizePracticeLength(button.dataset.practiceLength);
+      saveSettings();
+      applySettings();
+      if (game && game.status !== "playing") paintOutcome();
+    };
+  }
+  els.startPracticeFromSettings.onclick = () => {
+    closeOverlay("settingsOverlay");
+    startPractice();
   };
   els.shareBtn.onclick = share;
   els.practiceBtn.onclick = startPractice;
@@ -663,7 +688,7 @@ function paintStats() {
     const won = game.status === "won";
     const daily = Boolean(game.puzzle.dateKey);
     els.resultPanel.dataset.result = game.status;
-    els.resultKicker.textContent = daily ? `Daily #${puzzleNumber(game.puzzle.dateKey)}` : "Practice round";
+    els.resultKicker.textContent = daily ? `Daily #${puzzleNumber(game.puzzle.dateKey)}` : `Practice · ${game.puzzle.length} letters`;
     els.resultTitle.textContent = won ? winWord(game.guesses.length) : daily ? "One more tomorrow." : "Try again?";
     els.resultCopy.textContent = won
       ? `You found ${titleCase(game.puzzle.name)} in ${game.guesses.length} of 6 guesses.`
@@ -726,12 +751,11 @@ async function share() {
     toast("Finish a game to share");
     return;
   }
-  const options = { dark: settings.dark, colorblind: settings.colorblind };
   const url = friends.group ? inviteUrl() : SHARE_URL;
-  const text = shareGrid(game, { ...options, url });
+  const text = shareGrid(game, { url });
   try {
     if (navigator.share) {
-      await navigator.share({ text: shareGrid(game, options), url });
+      await navigator.share({ text: shareGrid(game), url });
       return;
     }
   } catch (err) {
@@ -750,11 +774,12 @@ async function share() {
 }
 
 function startPractice() {
-  closeOverlay("statsOverlay");
+  if (!names.answers.length) return toast("Names are still loading");
+  if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
   if (mode === "daily") dailyGame = game;
   const previousName = game?.puzzle?.name;
   mode = "practice";
-  game = createGame(pickRandomPuzzle(names.answers, Math.random, previousName));
+  game = createGame(pickRandomPuzzle(names.answers, Math.random, previousName, settings.practiceLength));
   renderAll();
 }
 
