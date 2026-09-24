@@ -2,7 +2,7 @@
 
 Guess the given name.
 
-**B** is given. **H** is in the name. **BETH**.
+**J** is given. **E** is in the name. **JAMES**.
 
 ## Play locally
 
@@ -27,20 +27,24 @@ After the first deploy, the game is at `https://<project>.vercel.app/`. Share th
 
 ## Rules
 
-- 6 guesses
+- 6 guesses at a five-letter first name
 - The first letter is already on the board
 - Every guess must be a real first name of the same length, starting with the given letter and containing the hidden letter
 - Green / yellow / gray work like Wordle (including duplicate letters)
+- One daily puzzle per local calendar date; a missed day is replaced by the new day's name. An open tab refreshes its daily puzzle at local midnight. Practice is unlimited and does not affect the daily streak.
+- Existing in-progress or completed daily games remain playable for their original date, even if they use the older 4–7 letter format. New daily and practice games use five letters.
 
 ## Play with friends
 
-Everyone gets the same numbered daily. After you finish, **Share** copies a spoiler-free grid into the group chat:
+Everyone on the same local calendar date gets the same numbered daily. After you finish, **Share result** sends or copies a spoiler-free grid and a link back to the game:
 
 ```
-GIVEN 225 3/6
+GIVEN 266 3/6
 
-🟩⬛🟨⬛
-🟩🟩🟩🟩
+🟩⬛🟨⬛⬛
+🟩🟩🟩🟩🟩
+
+https://given-one.vercel.app/
 ```
 
 Compare scores there. No rooms, no leaderboard, no spoilers.

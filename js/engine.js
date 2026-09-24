@@ -3,6 +3,7 @@
 export const MAX_GUESSES = 6;
 export const MIN_LEN = 4;
 export const MAX_LEN = 7;
+export const PLAY_LENGTH = 5;
 
 export function normalizeName(value) {
   return String(value || "")
@@ -147,8 +148,9 @@ export function dailyOrder(answers) {
 }
 
 export function pickDailyPuzzle(answers, containMap, dateKey) {
-  if (!answers.length) throw new Error("No answers");
-  const order = dailyOrder(answers);
+  const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
+  if (!eligible.length) throw new Error("No five-letter answers");
+  const order = dailyOrder(eligible);
   const num = puzzleNumber(dateKey);
   const name = order[(num - 1 + order.length) % order.length];
   const start = name[0];
@@ -164,8 +166,10 @@ export function pickDailyPuzzle(answers, containMap, dateKey) {
 }
 
 export function pickRandomPuzzle(answers, containMap, rng = Math.random) {
-  const idx = Math.floor(rng() * answers.length);
-  const name = normalizeName(answers[idx]);
+  const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
+  if (!eligible.length) throw new Error("No five-letter answers");
+  const idx = Math.floor(rng() * eligible.length);
+  const name = normalizeName(eligible[idx]);
   return {
     name,
     start: name[0],
@@ -311,7 +315,7 @@ export function submitGuess(game, guessSet, options = {}) {
   };
 }
 
-export function shareGrid(game, { dark = false, colorblind = false } = {}) {
+export function shareGrid(game, { dark = false, colorblind = false, url = "" } = {}) {
   const glyphs = colorblind
     ? { correct: "🟧", present: "🟦", absent: dark ? "⬛" : "⬜" }
     : { correct: "🟩", present: "🟨", absent: dark ? "⬛" : "⬜" };
@@ -320,6 +324,6 @@ export function shareGrid(game, { dark = false, colorblind = false } = {}) {
   const num = game.puzzle.dateKey ? puzzleNumber(game.puzzle.dateKey) : null;
   const title = num
     ? `GIVEN ${num} ${score}/${MAX_GUESSES}`
-    : `GIVEN ${score}/${MAX_GUESSES}`;
-  return [title, "", ...rows].join("\n");
+    : `GIVEN PRACTICE ${score}/${MAX_GUESSES}`;
+  return [title, "", ...rows, ...(url ? ["", url] : [])].join("\n");
 }
