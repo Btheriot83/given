@@ -20,7 +20,7 @@ export function validateResult(body, names, now = new Date()) {
   if (!/^[\p{L}\p{N} _.'-]{2,20}$/u.test(nickname)) throw new Error("Nickname must be 2–20 plain characters");
   if (!/^[0-9a-f]{8}-[0-9a-f-]{27,44}$/i.test(String(body.playerId || ""))) throw new Error("Invalid player ID");
   if (!Array.isArray(body.guesses) || body.guesses.length < 1 || body.guesses.length > MAX_GUESSES) throw new Error("Invalid guesses");
-  const puzzle = pickDailyPuzzle(names.answers, names.contain, body.dateKey);
+  const puzzle = pickDailyPuzzle(names.answers, body.dateKey);
   const guessSet = new Set(names.guesses);
   let game = createGame(puzzle);
   for (const guess of body.guesses) {

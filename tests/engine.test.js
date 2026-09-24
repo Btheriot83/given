@@ -6,9 +6,9 @@ import {
   validateGuess,
   pickDailyPuzzle,
   pickRandomPuzzle,
-  pickContainLetter,
   checkHardMode,
   createGame,
+  migrateSavedGame,
   typeLetter,
   backspace,
   submitGuess,
@@ -19,7 +19,6 @@ import {
   applyStreak,
   shiftDateKey,
   dailyOrder,
-  clueCandidates,
   MAX_GUESSES,
   PLAY_LENGTH,
   dateKeyFromPuzzleNumber,
@@ -47,13 +46,12 @@ equal(evaluateGuess("ARRAY", "ARMOR"), ["correct", "correct", "present", "absent
 equal(evaluateGuess("SPEED", "ERASE"), ["present", "absent", "present", "present", "absent"], "speed vs erase");
 equal(evaluateGuess("EEEEL", "STEAL"), ["absent", "absent", "correct", "absent", "correct"], "eeeel vs steal");
 
-const puzzle = { name: "BETH", start: "B", contain: "H", length: 4 };
-const dict = new Set(["BETH", "BART", "BENT", "BERT", "BRET", "BEAU", "BEAH"]);
+const puzzle = { name: "BETH", length: 4 };
+const dict = new Set(["BETH", "BART", "BENT", "BERT", "BRET", "BEAU", "BEAH", "KATE"]);
 
 equal(validateGuess("BETH", puzzle, dict).ok, true, "beth valid");
-equal(validateGuess("BART", puzzle, dict).ok, false, "bart missing H");
-assert(validateGuess("BART", puzzle, dict).reason.includes("H"), "missing contain reason");
-assert(validateGuess("KATE", puzzle, dict).reason.includes("B"), "must start with B");
+equal(validateGuess("BART", puzzle, dict).ok, true, "no required contained letter");
+equal(validateGuess("KATE", puzzle, dict).ok, true, "no required first letter");
 assert(validateGuess("BET", puzzle, dict).reason.includes("Not enough letters"), "short");
 assert(validateGuess("BASH", puzzle, dict).reason.includes("Not in name list"), "unknown name");
 
@@ -64,22 +62,23 @@ const hard = checkHardMode("BETH", ["BERT"], [evaluateGuess("BERT", "BETH")]);
 equal(hard.ok, true, "hard mode allows beth after bert");
 
 let game = createGame(puzzle);
-equal(game.current, "B", "first letter given");
+equal(game.current, "", "board starts empty");
 game = typeLetter(game, "B", 4);
-equal(game.current, "B", "retyping given letter is ignored");
+equal(game.current, "B", "first letter is typed normally");
 game = typeLetter(game, "E", 4);
 game = typeLetter(game, "T", 4);
 game = typeLetter(game, "H", 4);
-equal(game.current, "BETH", "typed remaining letters");
+equal(game.current, "BETH", "typed full name");
 game = typeLetter(game, "X", 4);
 equal(game.current, "BETH", "does not overflow");
 game = backspace(game);
 equal(game.current, "BET", "backspace");
 game = backspace(backspace(backspace(game)));
-equal(game.current, "B", "cannot delete given letter");
+equal(game.current, "", "can delete first letter");
+equal(backspace(game).current, "", "backspace on empty row is safe");
 
 game = createGame(puzzle);
-for (const ch of "ETH") game = typeLetter(game, ch, 4);
+for (const ch of "BETH") game = typeLetter(game, ch, 4);
 const submitted = submitGuess(game, dict);
 equal(submitted.game.status, "won", "win on beth");
 assert(shareGrid(submitted.game).includes("🟩🟩🟩🟩"), "share greens");
@@ -90,6 +89,20 @@ assert(puzzleNumber("2026-01-01") === 1, "puzzle number origin");
 const afterWin = submitGuess(submitted.game, dict);
 assert(afterWin.error === "Game is over", "no submit after win");
 
+let nextRow = createGame(puzzle);
+nextRow.current = "KATE";
+nextRow = submitGuess(nextRow, dict).game;
+equal(nextRow.current, "", "next guess starts empty");
+equal(nextRow.guesses, ["KATE"], "different-first-letter guess is recorded");
+
+const oldSave = { ...nextRow, puzzle: { ...puzzle, start: "B", contain: "H" }, current: "BE" };
+const migrated = migrateSavedGame(oldSave, puzzle);
+equal(migrated.current, "", "legacy prefilled row is cleared");
+equal(migrated.guesses, ["KATE"], "legacy submitted guesses are preserved");
+equal(migrated.puzzle, puzzle, "legacy clue metadata is removed");
+equal(migrateSavedGame(migrated, puzzle), migrated, "migration is idempotent");
+equal(migrateSavedGame({ ...oldSave, status: "won" }, puzzle).current, "BE", "completed game is untouched");
+
 let loss = createGame(puzzle);
 for (let i = 0; i < MAX_GUESSES; i++) {
   loss.current = "BEAH";
@@ -99,17 +112,15 @@ for (let i = 0; i < MAX_GUESSES; i++) {
 equal(loss.status, "lost", "loss at 6");
 
 const mixedAnswers = ["BETH", "JAMES", "MARIA", "SARAH", "AARON", "ELLA"];
-const mixedClues = { JAMES: "A", MARIA: "R", SARAH: "A", AARON: "R" };
-const a = pickDailyPuzzle(mixedAnswers, mixedClues, "2026-08-13");
-const b = pickDailyPuzzle(mixedAnswers, mixedClues, "2026-08-13");
+const a = pickDailyPuzzle(mixedAnswers, "2026-08-13");
+const b = pickDailyPuzzle(mixedAnswers, "2026-08-13");
 equal(a.name, b.name, "daily is stable");
 equal(a.length, PLAY_LENGTH, "daily uses five letters");
-const c = pickDailyPuzzle(mixedAnswers, mixedClues, "2026-08-14");
+const c = pickDailyPuzzle(mixedAnswers, "2026-08-14");
 assert(a.name !== c.name, "next day moves in shuffled order");
-equal(pickRandomPuzzle(mixedAnswers, mixedClues, () => 0).length, PLAY_LENGTH, "practice uses five letters");
+equal(pickRandomPuzzle(mixedAnswers, () => 0).length, PLAY_LENGTH, "practice uses five letters");
 assert(names.answers.filter((name) => name.length === PLAY_LENGTH).length > 365, "five-letter pool spans a year");
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
-equal(pickContainLetter("BETH", ["BETH", "BEAH", "BOSH", "BUSH"]), "H", "contain maximizes B+H");
 
 const keys = bestKeyStates(["BERT"], [evaluateGuess("BERT", "BETH")]);
 equal(keys.B, "correct", "key B");
@@ -123,16 +134,9 @@ equal(broken.streak, 1, "skipped day breaks streak");
 const continued = applyStreak(streak0, shiftDateKey("2026-08-10", 1), true);
 equal(continued.streak, 4, "yesterday continues streak");
 
-assert(names.contain.BETH === "H", "BETH contain is H");
 assert(!names.guesses.includes("BOOT"), "BOOT is not a valid name");
 assert(!names.answers.includes("MAMA"), "MAMA is not an answer");
 assert(!names.answers.includes("BETH"), "BETH is teaching-only, not a singleton daily");
-
-for (const name of names.answers) {
-  const ch = names.contain[name];
-  const pool = clueCandidates(name[0], ch, name.length, names.guesses);
-  assert(pool.length >= 8, `${name} clue-set too small: ${pool.length}`);
-}
 
 const order = dailyOrder(names.answers);
 assert(new Set(order).size === names.answers.length, "shuffled daily order is a permutation");
@@ -159,11 +163,15 @@ assert(validDateKey("2026-09-23", new Date("2026-09-23T12:00:00Z")), "current da
 assert(!validDateKey("2026-09-31", new Date("2026-09-23T12:00:00Z")), "invalid calendar date rejected");
 assert(!validDateKey("2026-08-23", new Date("2026-09-23T12:00:00Z")), "old results rejected");
 const testDate = "2026-09-23";
-const testAnswer = pickDailyPuzzle(names.answers, names.contain, testDate).name;
+const testAnswer = pickDailyPuzzle(names.answers, testDate).name;
 const playerId = "12345678-1234-4234-8234-123456789abc";
 const payload = { group: "ABCD2345", dateKey: testDate, nickname: "Name Fan", playerId, guesses: [testAnswer] };
 const verified = validateResult(payload, names, new Date("2026-09-23T12:00:00Z"));
 assert(verified.score === 1 && verified.nickname === "Name Fan", "server replays valid win");
+const differentStart = names.guesses.find((name) => name.length === PLAY_LENGTH && name[0] !== testAnswer[0]);
+assert(differentStart, "five-letter alternate opener exists");
+const verifiedTwo = validateResult({ ...payload, guesses: [differentStart, testAnswer] }, names, new Date("2026-09-23T12:00:00Z"));
+equal(verifiedTwo.score, 2, "server accepts an unrestricted first guess");
 for (const bad of [
   { ...payload, guesses: ["AAAAA"] },
   { ...payload, guesses: [] },
