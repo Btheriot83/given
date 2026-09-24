@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
-import { pickContainLetter, normalizeName, isValidNameShape } from "../js/engine.js";
+import { normalizeName, isValidNameShape } from "../js/engine.js";
 
 const BAN = new Set(["BOOT", "MAMA"]);
 
@@ -8,6 +8,23 @@ function isJunk(name) {
   if (/(.)\1{3,}/.test(name)) return true;
   if (/^[AEIOU]{5,}$/.test(name)) return true;
   return false;
+}
+
+// Preserve the legacy data file's answer pool and daily sequence when regenerating it.
+function pickContainLetter(name, guesses) {
+  const rest = [...new Set(name.slice(1))].filter((ch) => ch !== name[0]);
+  const pool = rest.length ? rest : [...new Set(name.slice(1))];
+  if (!pool.length) return name[0];
+  let best = pool[0];
+  let bestScore = -1;
+  for (const ch of pool) {
+    const score = guesses.filter((guess) => guess.length === name.length && guess[0] === name[0] && guess.includes(ch)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = ch;
+    }
+  }
+  return best;
 }
 
 const raw = new Set();

@@ -147,70 +147,31 @@ export function dailyOrder(answers) {
   return arr;
 }
 
-export function pickDailyPuzzle(answers, containMap, dateKey) {
+export function pickDailyPuzzle(answers, dateKey) {
   const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
   if (!eligible.length) throw new Error("No five-letter answers");
   const order = dailyOrder(eligible);
   const num = puzzleNumber(dateKey);
   const name = order[(num - 1 + order.length) % order.length];
-  const start = name[0];
-  const contain = containMap[name] || pickContainLetter(name);
   return {
     name,
-    start,
-    contain,
     length: name.length,
     dateKey,
     index: num,
   };
 }
 
-export function pickRandomPuzzle(answers, containMap, rng = Math.random) {
+export function pickRandomPuzzle(answers, rng = Math.random) {
   const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
   if (!eligible.length) throw new Error("No five-letter answers");
   const idx = Math.floor(rng() * eligible.length);
   const name = normalizeName(eligible[idx]);
   return {
     name,
-    start: name[0],
-    contain: containMap[name] || pickContainLetter(name),
     length: name.length,
     dateKey: null,
     index: null,
   };
-}
-
-export function pickContainLetter(name, guesses = []) {
-  const n = normalizeName(name);
-  const start = n[0];
-  const rest = [];
-  for (const ch of n.slice(1)) {
-    if (ch !== start && !rest.includes(ch)) rest.push(ch);
-  }
-  const pool = rest.length ? rest : [...new Set(n.slice(1).split(""))];
-  if (!pool.length) return start;
-  if (!guesses.length) return pool[0];
-  let best = pool[0];
-  let bestScore = -1;
-  for (const ch of pool) {
-    let score = 0;
-    for (const g of guesses) {
-      const u = normalizeName(g);
-      if (u.length === n.length && u[0] === start && u.includes(ch)) score += 1;
-    }
-    if (score > bestScore) {
-      bestScore = score;
-      best = ch;
-    }
-  }
-  return best;
-}
-
-export function clueCandidates(start, contain, length, guesses) {
-  return guesses.filter((g) => {
-    const u = normalizeName(g);
-    return u.length === length && u[0] === start && u.includes(contain);
-  });
 }
 
 export function validateGuess(guess, puzzle, guessSet, prior) {
@@ -218,12 +179,6 @@ export function validateGuess(guess, puzzle, guessSet, prior) {
   const secretLen = puzzle.length;
   if (g.length !== secretLen) {
     return { ok: false, reason: g.length < secretLen ? "Not enough letters" : `Must be ${secretLen} letters` };
-  }
-  if (g[0] !== puzzle.start) {
-    return { ok: false, reason: `Name must start with ${puzzle.start}` };
-  }
-  if (!g.includes(puzzle.contain)) {
-    return { ok: false, reason: `Name must contain ${puzzle.contain}` };
   }
   if (!guessSet.has(g)) {
     return { ok: false, reason: "Not in name list" };
@@ -265,8 +220,13 @@ export function createGame(puzzle) {
     guesses: [],
     evaluations: [],
     status: "playing",
-    current: puzzle.start,
+    current: "",
   };
+}
+
+export function migrateSavedGame(saved, puzzle) {
+  if (saved.status !== "playing" || !saved.puzzle?.start) return saved;
+  return { ...saved, puzzle, current: "" };
 }
 
 export function typeLetter(game, letter, maxLen) {
@@ -274,16 +234,12 @@ export function typeLetter(game, letter, maxLen) {
   const ch = normalizeName(letter);
   if (!ch || ch.length !== 1) return game;
   if (game.current.length >= maxLen) return game;
-  if (game.current === game.puzzle.start && ch === game.puzzle.start) return game;
-  if (game.current.length === 0) {
-    return { ...game, current: game.puzzle.start + (ch === game.puzzle.start ? "" : ch) };
-  }
   return { ...game, current: game.current + ch };
 }
 
 export function backspace(game) {
   if (game.status !== "playing") return game;
-  if (game.current.length <= 1) return { ...game, current: game.puzzle.start };
+  if (!game.current.length) return game;
   return { ...game, current: game.current.slice(0, -1) };
 }
 
@@ -308,7 +264,7 @@ export function submitGuess(game, guessSet, options = {}) {
       ...game,
       guesses,
       evaluations,
-      current: won || lost ? check.guess : game.puzzle.start,
+      current: won || lost ? check.guess : "",
       status: won ? "won" : lost ? "lost" : "playing",
     },
     error: null,

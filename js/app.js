@@ -1,6 +1,7 @@
 import {
   MAX_GUESSES,
   createGame,
+  migrateSavedGame,
   typeLetter,
   backspace,
   submitGuess,
@@ -26,9 +27,6 @@ const els = {
   outcome: document.getElementById("outcome"),
   finishFx: document.getElementById("finishFx"),
   keyboard: document.getElementById("keyboard"),
-  startLetter: document.getElementById("startLetter"),
-  containLetter: document.getElementById("containLetter"),
-  pair: document.getElementById("pair"),
   toast: document.getElementById("toast"),
   countdown: document.getElementById("countdown"),
   help: document.getElementById("helpOverlay"),
@@ -60,7 +58,7 @@ const els = {
   leaderboardList: document.getElementById("leaderboardList"),
 };
 
-let names = { guesses: [], answers: [], contain: {} };
+let names = { guesses: [], answers: [] };
 let guessSet = new Set();
 let game;
 let settings = loadSettings();
@@ -155,7 +153,7 @@ function toggleSwitch(el, on) {
 }
 
 function bootDaily() {
-  const puzzle = pickDailyPuzzle(names.answers, names.contain, localDateKey());
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey());
   const saved = loadDailySave(puzzle.dateKey);
   mode = "daily";
   if (saved) {
@@ -177,7 +175,10 @@ function bootDaily() {
 function loadDailySave(dateKey) {
   const raw = readStore(STORAGE + ":daily", null);
   if (!raw || raw.puzzle?.dateKey !== dateKey) return null;
-  return raw;
+  const puzzle = pickDailyPuzzle(names.answers, dateKey);
+  const migrated = migrateSavedGame(raw, puzzle);
+  if (migrated !== raw) writeStore(STORAGE + ":daily", migrated);
+  return migrated;
 }
 
 function saveDaily() {
@@ -193,9 +194,6 @@ function renderAll() {
   els.puzzleMeta.textContent = p.dateKey
     ? `Daily name #${puzzleNumber(p.dateKey)}`
     : "Practice round";
-  els.startLetter.textContent = p.start;
-  els.containLetter.textContent = p.contain;
-  els.pair.setAttribute("aria-label", `${p.start} given, ${p.contain} in the name`);
   renderBoard();
   renderKeys();
   paintOutcome();
@@ -238,9 +236,6 @@ function renderBoard() {
       if (ev) {
         tile.dataset.state = ev[c];
         tile.setAttribute("aria-label", `${ch} ${ev[c]}`);
-      } else if (c === 0 && ch) {
-        tile.dataset.state = "given";
-        tile.setAttribute("aria-label", `${ch} given`);
       } else if (ch) {
         tile.dataset.state = "tbd";
         tile.setAttribute("aria-label", ch);
@@ -753,14 +748,14 @@ function startPractice() {
   closeOverlay("statsOverlay");
   if (mode === "daily") dailyGame = game;
   mode = "practice";
-  game = createGame(pickRandomPuzzle(names.answers, names.contain));
+  game = createGame(pickRandomPuzzle(names.answers));
   renderAll();
 }
 
 function returnToDaily() {
   closeOverlay("statsOverlay");
   mode = "daily";
-  const puzzle = pickDailyPuzzle(names.answers, names.contain, localDateKey());
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey());
   game = dailyGame && dailyGame.puzzle?.dateKey === puzzle.dateKey
     ? dailyGame
     : loadDailySave(puzzle.dateKey) || createGame(puzzle);

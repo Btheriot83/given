@@ -1,8 +1,6 @@
 # Given
 
-Guess the given name.
-
-**J** is given. **E** is in the name. **JAMES**.
+Guess the daily five-letter first name in six tries. No letters are revealed before the first guess.
 
 ## Play locally
 
@@ -28,11 +26,10 @@ After the first deploy, the game is at `https://<project>.vercel.app/`. Share th
 ## Rules
 
 - 6 guesses at a five-letter first name
-- The first letter is already on the board
-- Every guess must be a real first name of the same length, starting with the given letter and containing the hidden letter
+- The board starts empty; every guess must be a real five-letter first name
 - Green / yellow / gray work like Wordle (including duplicate letters)
 - One daily puzzle per local calendar date; a missed day is replaced by the new day's name. An open tab refreshes its daily puzzle at local midnight. Practice is unlimited and does not affect the daily streak.
-- Existing in-progress or completed daily games remain playable for their original date, even if they use the older 4–7 letter format. New daily and practice games use five letters.
+- Existing in-progress daily games keep their submitted guesses and start the next row empty when upgraded from the old clue rules. Completed games and scores remain intact. New daily and practice games use five letters.
 
 ## Play with friends
 
