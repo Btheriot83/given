@@ -29,6 +29,7 @@ After the first deploy, the game is at `https://<project>.vercel.app/`. Share th
 - The board starts empty; every guess must be a real five-letter first name
 - Green / yellow / gray work like Wordle (including duplicate letters)
 - One daily puzzle per local calendar date; a missed day is replaced by the new day's name. An open tab refreshes its daily puzzle at local midnight. Practice is unlimited and does not affect the daily streak.
+- After a finished round, **Play another name** starts an unranked practice round with a different answer. It does not reset the shared daily or its friends-board score.
 - Existing in-progress daily games keep their submitted guesses and start the next row empty when upgraded from the old clue rules. Completed games and scores remain intact. New daily and practice games use five letters.
 
 ## Play with friends

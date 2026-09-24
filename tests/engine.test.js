@@ -125,6 +125,7 @@ equal(a.length, PLAY_LENGTH, "daily uses five letters");
 const c = pickDailyPuzzle(mixedAnswers, "2026-08-14");
 assert(a.name !== c.name, "next day moves in shuffled order");
 equal(pickRandomPuzzle(mixedAnswers, () => 0).length, PLAY_LENGTH, "practice uses five letters");
+equal(pickRandomPuzzle(["LAKEN", "SARAH"], () => 0, "LAKEN").name, "SARAH", "another name differs from the prior answer");
 assert(names.answers.filter((name) => name.length === PLAY_LENGTH).length > 365, "five-letter pool spans a year");
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
 
