@@ -31,13 +31,11 @@
       </div>
       <div class="masthead">
         <div class="wordmark">Given</div>
-        <div class="pair" id="pair" aria-live="polite">
-          <span id="startLetter"></span>
-          <span class="dot" aria-hidden="true">·</span>
-          <span id="containLetter"></span>
-        </div>
       </div>
       <div class="header-right">
+        <button class="icon-btn" type="button" id="friendsBtn" aria-label="Friends board">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 20h8M12 16v4M7 4h10v7a5 5 0 0 1-10 0V4ZM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+        </button>
         <button class="icon-btn" type="button" id="statsBtn" aria-label="Statistics">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 18V10M12 18V6M18 18v-7"/></svg>
         </button>
@@ -47,10 +45,15 @@
       </div>
     </header>
 
-    <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
     <div class="outcome" id="outcome" role="status" hidden></div>
 
     <div class="board-wrap">
+      <div class="board-heading">
+        <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
+        <div class="pair" id="pair" aria-live="polite">
+          <strong id="startLetter"></strong> is given <span class="dot" aria-hidden="true">·</span> <strong id="containLetter"></strong> is in the name
+        </div>
+      </div>
       <div class="board" id="board" role="grid" aria-label="Guesses"></div>
     </div>
 
@@ -83,6 +86,11 @@
         <strong class="result-title" id="resultTitle"></strong>
         <span class="result-copy" id="resultCopy"></span>
       </div>
+      <section class="name-note" id="nameNote" aria-label="About the name" hidden>
+        <h3>About the name</h3>
+        <p id="nameNoteText"></p>
+        <a href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
+      </section>
       <div class="stats-row" id="statsRow"></div>
       <h3 class="dist-title">Guess distribution</h3>
       <div class="dist" id="dist"></div>
@@ -96,6 +104,35 @@
       </div>
       <button class="text-link" type="button" id="practiceBtn">Practice</button>
       <button class="text-link" type="button" id="todayBtn">Today’s puzzle</button>
+      <button class="text-link" type="button" id="statsFriendsBtn">See friends board</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="friendsOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
+      <button class="close" type="button" data-close="friendsOverlay" aria-label="Close">×</button>
+      <h2 id="friendsTitle">Friends board</h2>
+      <p class="friends-intro">A little friendly rivalry. Share a code, play the daily name, and compare guesses without spoilers.</p>
+      <form id="friendsForm" class="friends-form">
+        <label for="nickname">Your nickname</label>
+        <input id="nickname" name="nickname" autocomplete="nickname" maxlength="20" placeholder="Your name" required />
+        <label for="groupCode">Invite code</label>
+        <div class="friends-code-row">
+          <input id="groupCode" name="groupCode" autocapitalize="characters" maxlength="8" placeholder="8-character code" />
+          <button type="button" id="createGroupBtn">New code</button>
+        </div>
+        <button class="primary" type="submit">Join board</button>
+      </form>
+      <div id="friendsActive" class="friends-active" hidden>
+        <div class="friends-active-head">
+          <div><span class="result-kicker">Your group</span><strong id="activeGroupCode"></strong></div>
+          <button type="button" id="copyInviteBtn">Copy invite</button>
+        </div>
+        <p id="friendsStatus" role="status"></p>
+        <ol id="leaderboardList" class="leaderboard-list"></ol>
+        <button type="button" class="text-link" id="changeGroupBtn">Use another code</button>
+      </div>
+      <p class="friends-footnote">Daily results only. One result per device per group, kept for 90 days. Invite codes are unlisted, not private accounts.</p>
     </div>
   </div>
 
