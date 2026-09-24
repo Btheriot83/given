@@ -7,8 +7,10 @@
   --key: #e5e8e4;
   --key-text: #1c3027;
   --absent: #59635e;
-  --present: #ad3f4b;
+  --present: #edc54d;
   --correct: #24664d;
+  --correct-feedback: #65b981;
+  --feedback-ink: #142820;
   --tile-face: #fffefa;
   --tile-edge: #d6dbd3;
   --toast: #1a1a1b;
@@ -27,8 +29,9 @@
   --key: #35453f;
   --key-text: #f3f4ed;
   --absent: #4e5954;
-  --present: #b74550;
+  --present: #e5bd45;
   --correct: #43856c;
+  --correct-feedback: #70c58e;
   --tile-face: #202d29;
   --tile-edge: #0b1411;
   --toast: #ffffff;
@@ -39,8 +42,9 @@
 }
 
 :root[data-colorblind="on"] {
-  --present: #a72e40;
+  --present: #f6d45e;
   --correct: #146443;
+  --correct-feedback: #81d69b;
 }
 
 * { box-sizing: border-box; }
@@ -261,8 +265,8 @@ button {
   transform: rotateX(-4deg) translateZ(3px);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 3px 0 var(--tile-edge), 0 7px 10px rgba(20,48,31,.16);
 }
-.tile[data-state="correct"] { background: linear-gradient(155deg, color-mix(in srgb, var(--correct) 90%, #fff), var(--correct) 58%, color-mix(in srgb, var(--correct) 90%, #000)); border-color: color-mix(in srgb, var(--correct) 88%, #fff); color: #fff; --tile-edge: color-mix(in srgb, var(--correct) 66%, #10241b); }
-.tile[data-state="present"] { background: var(--present); border-color: var(--present); color: #fff; --tile-edge: color-mix(in srgb, var(--present) 66%, #471820); }
+.tile[data-state="correct"] { background: linear-gradient(155deg, color-mix(in srgb, var(--correct-feedback) 90%, #fff), var(--correct-feedback) 58%, color-mix(in srgb, var(--correct-feedback) 90%, #000)); border-color: color-mix(in srgb, var(--correct-feedback) 88%, #fff); color: var(--feedback-ink); --tile-edge: color-mix(in srgb, var(--correct-feedback) 66%, #10241b); }
+.tile[data-state="present"] { background: var(--present); border-color: var(--present); color: var(--feedback-ink); --tile-edge: color-mix(in srgb, var(--present) 66%, #735a13); }
 .tile[data-state="absent"] { background: var(--absent); border-color: var(--absent); color: #fff; --tile-edge: color-mix(in srgb, var(--absent) 66%, #111b16); }
 .tile.flip { animation: flip 0.5s ease forwards; }
 .tile.lift { animation: win-lift 0.55s cubic-bezier(.23, 1, .32, 1); }
@@ -338,8 +342,8 @@ button {
 }
 .key.wide { flex: 1.65; font-size: 12px; padding: 0 4px; background: color-mix(in srgb, var(--key) 58%, var(--filled)); }
 .key[data-key="DEL"] { font-size: 20px; }
-.key[data-state="correct"] { background: var(--correct); color: #fff; }
-.key[data-state="present"] { background: var(--present); color: #fff; }
+.key[data-state="correct"] { background: var(--correct-feedback); color: var(--feedback-ink); }
+.key[data-state="present"] { background: var(--present); color: var(--feedback-ink); }
 .key[data-state="absent"] { background: var(--absent); color: #fff; }
 .key:active { transform: translateY(2px); box-shadow: 0 1px 0 color-mix(in srgb, var(--key) 70%, #83908a); }
 

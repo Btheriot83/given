@@ -95,7 +95,7 @@ nextRow.current = "KATE";
 nextRow = submitGuess(nextRow, dict).game;
 equal(nextRow.current, "", "next guess starts empty");
 equal(nextRow.guesses, ["KATE"], "different-first-letter guess is recorded");
-assert(shareGrid(nextRow).includes("🟥") && shareGrid(nextRow).includes("⬛"), "share marks misplaced red and absent black");
+assert(shareGrid(nextRow).includes("🟨") && shareGrid(nextRow).includes("⬛"), "share marks misplaced yellow and absent black");
 
 const oldSave = { ...nextRow, puzzle: { ...puzzle, start: "B", contain: "H" }, current: "BE" };
 const migrated = migrateSavedGame(oldSave);

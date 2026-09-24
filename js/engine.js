@@ -284,7 +284,7 @@ export function submitGuess(game, guessSet, options = {}) {
 }
 
 export function shareGrid(game, { url = "" } = {}) {
-  const glyphs = { correct: "🟩", present: "🟥", absent: "⬛" };
+  const glyphs = { correct: "🟩", present: "🟨", absent: "⬛" };
   const rows = game.evaluations.map((ev) => ev.map((s) => glyphs[s]).join(""));
   const score = game.status === "won" ? String(game.guesses.length) : "X";
   const num = game.puzzle.dateKey ? puzzleNumber(game.puzzle.dateKey) : null;
