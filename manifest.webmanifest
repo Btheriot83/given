@@ -4,8 +4,8 @@
   "description": "A familiar name. A daily discovery.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#061947",
-  "theme_color": "#061947",
+  "background_color": "#e9edf1",
+  "theme_color": "#e9edf1",
   "icons": [
     {
       "src": "/apple-touch-icon.png",

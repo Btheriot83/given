@@ -165,7 +165,7 @@ function saveStats() {
 function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
   document.documentElement.dataset.colorblind = settings.colorblind ? "on" : "off";
-  document.querySelector('meta[name="theme-color"]').setAttribute("content", settings.dark ? "#030e2b" : "#061947");
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", settings.dark ? "#d5dce2" : "#e9edf1");
   toggleSwitch(els.darkSwitch, settings.dark);
   toggleSwitch(els.cbSwitch, settings.colorblind);
   toggleSwitch(els.hardSwitch, settings.hardMode);

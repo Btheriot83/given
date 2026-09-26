@@ -2,7 +2,7 @@
 
 Guess a familiar four-to-seven-letter first name each day in six tries. For a second daily challenge, try the optional Obscure puzzle. No letters are revealed before the first guess.
 
-Named uses a quiet blue backdrop, glossy dimensional tiles, white correct-letter text, and mobile sheets. Add the site to the iPhone Home Screen for the standalone layout; safe-area spacing and reduced-motion preferences are supported. Existing Given saves and invite links continue to work at the same URL.
+Named uses a quiet pearl backdrop, white/clear glass panels, dimensional tiles, and mobile sheets. Correct and misplaced letters are white on green/yellow; unknown and absent letters stay dark. Smoked glass is an optional slightly darker neutral treatment. The rounded Fredoka wordmark font is self-hosted under the license in `fonts/OFL.txt`, with no external font request. Add the site to the iPhone Home Screen for the standalone layout; safe-area spacing and reduced-motion preferences are supported. Existing Given saves and invite links continue to work at the same URL.
 
 ## Play locally
 
