@@ -8,7 +8,7 @@ const notes = JSON.parse(readFileSync(new URL("../data/name-notes.json", import.
 // Obscure is deliberately optional, but still requires a meaningful SSA record.
 const familiar = names.answers.filter((name) => {
   const fact = notes.counts[name];
-  return fact && [5, 6, 7].includes(name.length) &&
+  return fact && [4, 5, 6, 7].includes(name.length) &&
     (fact.total >= 150_000 || (fact.peakYear >= 2010 && fact.peakCount >= 2_000));
 });
 const familiarSet = new Set(familiar);
@@ -17,6 +17,11 @@ const obscure = names.answers.filter((name) => {
   return name.length === 5 && total >= 5_000 && total < 20_000 && !familiarSet.has(name);
 });
 
-const output = { familiar, obscure };
+// Weight lengths by recorded births, then give names within a length equal turns.
+const lengthWeights = Object.fromEntries([4, 5, 6, 7].map((length) => [
+  length, familiar.filter((name) => name.length === length)
+    .reduce((sum, name) => sum + notes.counts[name].total, 0),
+]));
+const output = { familiar, obscure, lengthWeights };
 writeFileSync(new URL("../data/answer-pools.json", import.meta.url), `${JSON.stringify(output)}\n`);
 console.log(`Familiar: ${familiar.length}; obscure: ${obscure.length}`);

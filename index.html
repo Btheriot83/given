@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#ffffff" />
+  <meta name="theme-color" content="#061947" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Given" />
-  <title>Given</title>
-  <meta name="description" content="One familiar five-letter first name every day, plus an optional obscure puzzle. Share your spoiler-free result." />
-  <meta property="og:title" content="Given" />
-  <meta property="og:description" content="One familiar five-letter first name every day, plus an optional obscure puzzle. Share your spoiler-free result." />
+  <meta name="apple-mobile-web-app-title" content="Named" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Named</title>
+  <meta name="description" content="One familiar first name every day, from four to seven letters, plus an optional obscure puzzle." />
+  <meta property="og:title" content="Named" />
+  <meta property="og:description" content="One familiar first name every day, from four to seven letters, plus an optional obscure puzzle." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/og.png" />
   <meta property="og:image:width" content="1200" />
@@ -30,7 +31,7 @@
         </button>
       </div>
       <div class="masthead">
-        <div class="wordmark">Given</div>
+        <div class="wordmark">Named</div>
       </div>
       <div class="header-right">
         <button class="icon-btn" type="button" id="friendsBtn" aria-label="Friends board">
@@ -40,7 +41,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 18V10M12 18V6M18 18v-7"/></svg>
         </button>
         <button class="icon-btn" type="button" id="settingsBtn" aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M17.8 6.2l-1.4 1.4M7.6 16.4l-1.4 1.4"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 3-.6 2.2-2 .9-2-.7L2.7 8l1.5 1.6-.2 2.2L2.5 13l1.6 3 2.1-.1 1.7 1.5.3 2.2 3.4.6 1-1.9 2.2-.5 1.8 1.1 2.5-2.3-.9-2 .7-2.1 2-1-.8-3.3-2.2-.2-1.5-1.7.1-2.2-3.1-1.5-1.5 1.6-2.2-.1Z"/><circle cx="12" cy="11.5" r="3"/></svg>
         </button>
       </div>
     </header>
@@ -58,12 +59,13 @@
         <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
         <button class="puzzle-switch" id="puzzleSwitch" type="button">Try obscure</button>
         <div class="next-day-note" id="nextDayNote" hidden>New name tomorrow</div>
-        <button class="practice-length-link" id="practiceLengthLink" type="button" hidden>Change length</button>
+        <button class="practice-length-link" id="practiceLengthLink" type="button" aria-label="Change length" hidden>Length</button>
       </div>
       <div class="board" id="board" role="grid" aria-label="Guesses"></div>
     </div>
 
     <div class="keyboard" id="keyboard" aria-label="Keyboard"></div>
+    <footer class="app-footer" aria-hidden="true"><span></span>GOOD NAMES AHEAD<span></span></footer>
   </div>
 
   <div class="finish-fx" id="finishFx" aria-hidden="true"></div>
@@ -74,8 +76,8 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
       <button class="close" type="button" data-close="helpOverlay" aria-label="Close">×</button>
       <h2 id="helpTitle">How to play</h2>
-      <p>Guess today’s familiar five-letter first name in 6 tries.</p>
-      <p>Start with any real five-letter first name. No letters are given before your first guess.</p>
+      <p>Guess today’s familiar first name in 6 tries. The daily changes between 4 and 7 letters—check the badge above the board.</p>
+      <p>Start with any real first name that fits the board. Everyone gets the same name for the same date. No letters are given before your first guess.</p>
       <p>After each guess, bright green means the right letter in the right spot, yellow means the right letter in a different spot, and gray means the letter is not in the name.</p>
       <p>Want a second challenge? Tap <b>Try obscure</b> for a harder five-letter puzzle. Both change at your local midnight, but only the official daily counts toward your streak and friends board. Share either grid without spoiling the answer.</p>
       <div class="example" id="ex1"></div>
@@ -113,6 +115,17 @@
       <button class="text-link" type="button" id="statsObscureBtn">Try today’s obscure puzzle</button>
       <button class="text-link" type="button" id="todayBtn">Official daily</button>
       <button class="text-link" type="button" id="statsFriendsBtn">See friends board</button>
+      <button class="text-link" type="button" id="historyBtn">Daily name history</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="historyOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+      <button class="close" type="button" data-close="historyOverlay" aria-label="Close">×</button>
+      <h2 id="historyTitle">The names so far</h2>
+      <p>Official daily names, newest first. Today stays hidden until you finish. History starts September 26, 2026.</p>
+      <div id="nameHistory"></div>
+      <button class="text-link" type="button" id="moreHistoryBtn" hidden>Earlier names</button>
     </div>
   </div>
 
@@ -150,10 +163,10 @@
       <h2 id="settingsTitle">Settings</h2>
       <div class="settings-row">
         <div>
-          <h3>Dark theme</h3>
-          <p>Deep black background.</p>
+          <h3>Midnight blue</h3>
+          <p>A softer glow for evening play.</p>
         </div>
-        <button class="switch" type="button" id="darkSwitch" aria-pressed="false" aria-label="Dark theme"><i></i></button>
+        <button class="switch" type="button" id="darkSwitch" aria-pressed="false" aria-label="Midnight blue"><i></i></button>
       </div>
       <div class="settings-row">
         <div>
@@ -171,7 +184,7 @@
       </div>
       <fieldset class="practice-settings">
         <legend>Practice length</legend>
-        <p>Choose the length of your next unranked round. The daily stays at five letters for everyone.</p>
+        <p>Choose the length of your next unranked round. The official daily chooses its own length each day.</p>
         <div class="length-options" role="group" aria-label="Practice name length">
           <button type="button" data-practice-length="5" aria-pressed="true">5 letters</button>
           <button type="button" data-practice-length="6" aria-pressed="false">6 letters</button>
