@@ -5,6 +5,7 @@ export const MIN_LEN = 4;
 export const MAX_LEN = 7;
 export const PLAY_LENGTH = 5;
 export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
+export const FAMILIAR_START_DATE = "2026-09-27";
 
 export function normalizePracticeLength(value) {
   const length = Number(value);
@@ -143,8 +144,8 @@ function mulberry32(seed) {
   };
 }
 
-export function dailyOrder(answers) {
-  const rng = mulberry32(hashString("GIVEN-DAILY-v2"));
+export function dailyOrder(answers, seed = "GIVEN-DAILY-v2") {
+  const rng = mulberry32(hashString(seed));
   const arr = answers.map(normalizeName);
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -153,18 +154,33 @@ export function dailyOrder(answers) {
   return arr;
 }
 
-export function pickDailyPuzzle(answers, dateKey) {
-  const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
+export function pickDailyPuzzle(answers, dateKey, familiarAnswers) {
+  const familiar = dateKey >= FAMILIAR_START_DATE;
+  if (familiar && (!Array.isArray(familiarAnswers) || !familiarAnswers.length)) {
+    throw new Error("No familiar answers configured");
+  }
+  const eligible = (familiar ? familiarAnswers : answers)
+    .filter((name) => normalizeName(name).length === PLAY_LENGTH);
   if (!eligible.length) throw new Error("No five-letter answers");
-  const order = dailyOrder(eligible);
+  const order = dailyOrder(eligible, familiar ? "GIVEN-FAMILIAR-v1" : "GIVEN-DAILY-v2");
   const num = puzzleNumber(dateKey);
-  const name = order[(num - 1 + order.length) % order.length];
+  const offset = familiar ? puzzleNumber(FAMILIAR_START_DATE) : 1;
+  const name = order[(num - offset + order.length) % order.length];
   return {
     name,
     length: name.length,
     dateKey,
     index: num,
   };
+}
+
+export function pickObscurePuzzle(answers, dateKey) {
+  const eligible = answers.filter((name) => normalizeName(name).length === PLAY_LENGTH);
+  if (!eligible.length) throw new Error("No five-letter obscure answers");
+  const order = dailyOrder(eligible, "GIVEN-OBSCURE-v1");
+  const num = puzzleNumber(dateKey);
+  const name = order[(num - 1 + order.length) % order.length];
+  return { name, length: PLAY_LENGTH, dateKey, index: num, kind: "obscure" };
 }
 
 export function pickRandomPuzzle(answers, rng = Math.random, excludeName = null, length = PLAY_LENGTH) {
@@ -289,7 +305,7 @@ export function shareGrid(game, { url = "" } = {}) {
   const score = game.status === "won" ? String(game.guesses.length) : "X";
   const num = game.puzzle.dateKey ? puzzleNumber(game.puzzle.dateKey) : null;
   const title = num
-    ? `GIVEN ${num} ${score}/${MAX_GUESSES}`
+    ? `GIVEN ${game.puzzle.kind === "obscure" ? "OBSCURE " : ""}${num} ${score}/${MAX_GUESSES}`
     : `GIVEN PRACTICE · ${game.puzzle.length} LETTERS ${score}/${MAX_GUESSES}`;
   return [title, "", ...rows, ...(url ? ["", url] : [])].join("\n");
 }

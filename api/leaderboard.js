@@ -1,4 +1,5 @@
 import names from "../data/names.json" with { type: "json" };
+import answerPools from "../data/answer-pools.json" with { type: "json" };
 import { normalizeGroup, rankEntries, validDateKey, validateResult } from "../js/leaderboard-core.js";
 
 const url = process.env.KV_REST_API_URL;
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
     }
     const length = Number(req.headers["content-length"] || 0);
     if (length > 2048) return send(res, 413, { error: "Result too large" });
-    const result = validateResult(req.body, names);
+    const result = validateResult(req.body, { ...names, familiarAnswers: answerPools.familiar });
     const key = `given:board:${result.group}:${result.dateKey}`;
     const count = await redis("HLEN", key);
     if (Number(count) >= 50) return send(res, 409, { error: "This group is full for today" });

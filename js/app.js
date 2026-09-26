@@ -7,6 +7,7 @@ import {
   backspace,
   submitGuess,
   pickDailyPuzzle,
+  pickObscurePuzzle,
   pickRandomPuzzle,
   bestKeyStates,
   shareGrid,
@@ -25,6 +26,7 @@ const SHARE_URL = "https://given-one.vercel.app/";
 const els = {
   board: document.getElementById("board"),
   puzzleMeta: document.getElementById("puzzleMeta"),
+  puzzleSwitch: document.getElementById("puzzleSwitch"),
   nextDayNote: document.getElementById("nextDayNote"),
   practiceLengthLink: document.getElementById("practiceLengthLink"),
   outcome: document.getElementById("outcome"),
@@ -39,6 +41,7 @@ const els = {
   stats: document.getElementById("statsOverlay"),
   settings: document.getElementById("settingsOverlay"),
   statsRow: document.getElementById("statsRow"),
+  statsScopeNote: document.getElementById("statsScopeNote"),
   resultPanel: document.getElementById("resultPanel"),
   resultKicker: document.getElementById("resultKicker"),
   resultTitle: document.getElementById("resultTitle"),
@@ -54,6 +57,7 @@ const els = {
   startPracticeFromSettings: document.getElementById("startPracticeFromSettings"),
   shareBtn: document.getElementById("shareBtn"),
   practiceBtn: document.getElementById("practiceBtn"),
+  statsObscureBtn: document.getElementById("statsObscureBtn"),
   todayBtn: document.getElementById("todayBtn"),
   ex1: document.getElementById("ex1"),
   friends: document.getElementById("friendsOverlay"),
@@ -67,6 +71,7 @@ const els = {
 };
 
 let names = { guesses: [], answers: [] };
+let answerPools = { familiar: [], obscure: [] };
 let guessSet = new Set();
 let game;
 let settings = loadSettings();
@@ -75,6 +80,7 @@ let revealing = false;
 let toastTimer;
 let mode = "daily";
 let dailyGame = null;
+let obscureGame = null;
 let lastFocus = null;
 let finishFxTimer;
 let nameNotesPromise;
@@ -88,11 +94,14 @@ buildHelpExample();
 bindChrome();
 
 try {
-  const res = await fetch("./data/names.json");
-  if (!res.ok) throw new Error("names");
-  const data = await res.json();
-  names = data;
-  guessSet = new Set(data.guesses.map((n) => n.toUpperCase()));
+  const [namesResponse, poolsResponse] = await Promise.all([
+    fetch("./data/names.json"),
+    fetch("./data/answer-pools.json"),
+  ]);
+  if (!namesResponse.ok || !poolsResponse.ok) throw new Error("names");
+  names = await namesResponse.json();
+  answerPools = await poolsResponse.json();
+  guessSet = new Set(names.guesses.map((n) => n.toUpperCase()));
   bootDaily();
   if (invitedGroup && invitedGroup !== friends.group) toast("Friend code ready — tap the trophy to join", 4000);
 } catch {
@@ -168,7 +177,7 @@ function toggleSwitch(el, on) {
 }
 
 function bootDaily() {
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey());
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar);
   const saved = loadDailySave(puzzle.dateKey);
   mode = "daily";
   if (saved) {
@@ -187,6 +196,19 @@ function bootDaily() {
   if (!settings.seenHelp) openOverlay("helpOverlay");
 }
 
+function bootObscure() {
+  const puzzle = pickObscurePuzzle(answerPools.obscure, localDateKey());
+  const saved = readStore(STORAGE + ":obscure", null);
+  mode = "obscure";
+  game = obscureGame?.puzzle?.dateKey === puzzle.dateKey
+    ? obscureGame
+    : saved?.puzzle?.dateKey === puzzle.dateKey && saved.puzzle.kind === "obscure"
+      ? migrateSavedGame(saved)
+      : createGame(puzzle);
+  obscureGame = game;
+  renderAll();
+}
+
 function loadDailySave(dateKey) {
   const raw = readStore(STORAGE + ":daily", null);
   if (!raw || raw.puzzle?.dateKey !== dateKey) return null;
@@ -195,19 +217,23 @@ function loadDailySave(dateKey) {
   return migrated;
 }
 
-function saveDaily() {
+function saveGame() {
   if (mode === "daily" && game?.puzzle?.dateKey) {
     game.hardMode = settings.hardMode;
     writeStore(STORAGE + ":daily", game);
     dailyGame = game;
+  } else if (mode === "obscure" && game?.puzzle?.dateKey) {
+    writeStore(STORAGE + ":obscure", game);
+    obscureGame = game;
   }
 }
 
 function renderAll() {
   const p = game.puzzle;
   els.puzzleMeta.textContent = p.dateKey
-    ? `Daily #${puzzleNumber(p.dateKey)}`
+    ? `${mode === "obscure" ? "Obscure" : "Daily"} #${puzzleNumber(p.dateKey)}`
     : `Practice · ${p.length} letters`;
+  els.puzzleSwitch.textContent = mode === "daily" ? "Try obscure" : "Official daily";
   els.nextDayNote.hidden = !(p.dateKey && game.status !== "playing");
   els.practiceLengthLink.hidden = Boolean(p.dateKey);
   renderBoard();
@@ -225,7 +251,9 @@ function paintOutcome() {
   els.outcomeTitle.textContent = game.status === "won"
     ? `${winWord(game.guesses.length)} ${game.guesses.length}/6`
     : `The name was ${titleCase(game.puzzle.name)}.`;
-  els.outcomeDetail.textContent = `Next: ${settings.practiceLength}-letter practice`;
+  els.outcomeDetail.textContent = game.puzzle.kind === "obscure"
+    ? "Another obscure name arrives tomorrow"
+    : `Next: ${settings.practiceLength}-letter practice`;
   els.nextDayNote.hidden = !game.puzzle.dateKey;
 }
 
@@ -326,6 +354,7 @@ function bindChrome() {
   els.friendsForm.onsubmit = joinFriends;
   document.getElementById("settingsBtn").onclick = () => openOverlay("settingsOverlay");
   els.practiceLengthLink.onclick = () => openOverlay("settingsOverlay");
+  els.puzzleSwitch.onclick = () => mode === "daily" ? switchToObscure() : returnToDaily();
   document.querySelectorAll("[data-close]").forEach((btn) => {
     btn.onclick = () => closeOverlay(btn.dataset.close);
   });
@@ -352,7 +381,7 @@ function bindChrome() {
     settings.hardMode = !settings.hardMode;
     saveSettings();
     applySettings();
-    saveDaily();
+    saveGame();
   };
   for (const button of els.practiceLengthOptions) {
     button.onclick = () => {
@@ -368,6 +397,7 @@ function bindChrome() {
   };
   els.shareBtn.onclick = share;
   els.practiceBtn.onclick = startPractice;
+  els.statsObscureBtn.onclick = switchToObscure;
   els.nextNameBtn.onclick = startPractice;
   els.todayBtn.onclick = returnToDaily;
   window.addEventListener("keydown", onKey, true);
@@ -445,7 +475,7 @@ async function submit() {
   revealing = true;
   await flipRow(before.guesses.length, next.evaluations[next.evaluations.length - 1], next.guesses.at(-1));
   game = next;
-  saveDaily();
+  saveGame();
   renderKeys();
   if (game.status === "won") {
     await liftWin();
@@ -487,9 +517,10 @@ function tickCountdown() {
     boardDate = localDateKey(now);
     if (els.friends.classList.contains("open")) refreshFriends();
   }
-  if (mode === "daily" && game?.puzzle?.dateKey && game.puzzle.dateKey !== localDateKey(now) && !revealing) {
+  if ((mode === "daily" || mode === "obscure") && game?.puzzle?.dateKey && game.puzzle.dateKey !== localDateKey(now) && !revealing) {
     if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
-    bootDaily();
+    if (mode === "daily") bootDaily();
+    else bootObscure();
   }
   const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   let ms = Math.max(0, next.getTime() - now.getTime());
@@ -575,7 +606,7 @@ function toast(msg, ms = 2000) {
 }
 
 function recordFinish(won) {
-  if (!game.puzzle.dateKey) {
+  if (mode !== "daily") {
     paintStats();
     return;
   }
@@ -681,18 +712,25 @@ async function postResult() {
 
 function paintStats() {
   const finished = game && game.status !== "playing";
+  els.statsScopeNote.hidden = mode === "daily";
+  els.statsObscureBtn.hidden = mode === "obscure";
   els.resultPanel.hidden = !finished;
   els.nameNote.hidden = !finished;
   els.shareBtn.disabled = !finished;
   if (finished) {
     const won = game.status === "won";
     const daily = Boolean(game.puzzle.dateKey);
+    const obscure = game.puzzle.kind === "obscure";
     els.resultPanel.dataset.result = game.status;
-    els.resultKicker.textContent = daily ? `Daily #${puzzleNumber(game.puzzle.dateKey)}` : `Practice · ${game.puzzle.length} letters`;
+    els.resultKicker.textContent = obscure
+      ? `Obscure #${puzzleNumber(game.puzzle.dateKey)}`
+      : daily ? `Daily #${puzzleNumber(game.puzzle.dateKey)}` : `Practice · ${game.puzzle.length} letters`;
     els.resultTitle.textContent = won ? winWord(game.guesses.length) : daily ? "One more tomorrow." : "Try again?";
     els.resultCopy.textContent = won
       ? `You found ${titleCase(game.puzzle.name)} in ${game.guesses.length} of 6 guesses.`
-      : daily
+      : obscure
+        ? `The obscure name was ${titleCase(game.puzzle.name)}. A new one arrives at midnight.`
+        : daily
         ? `Today’s name was ${titleCase(game.puzzle.name)}. A fresh puzzle arrives at midnight.`
         : `The name was ${titleCase(game.puzzle.name)}. Start another practice round anytime.`;
     paintNameNote(game.puzzle.name);
@@ -717,7 +755,7 @@ function paintStats() {
     ...stats.dist.map((count, i) => {
       const row = document.createElement("div");
       row.className = "dist-row";
-      const winBar = game?.status === "won" && game.guesses.length === i + 1;
+      const winBar = mode === "daily" && game?.status === "won" && game.guesses.length === i + 1;
       row.innerHTML = `<span>${i + 1}</span><div class="bar${winBar ? " win" : ""}" style="width:${Math.max(7, (100 * count) / max)}%">${count}</div>`;
       return row;
     })
@@ -774,19 +812,28 @@ async function share() {
 }
 
 function startPractice() {
-  if (!names.answers.length) return toast("Names are still loading");
+  if (!answerPools.familiar.length) return toast("Names are still loading");
   if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
   if (mode === "daily") dailyGame = game;
+  if (mode === "obscure") obscureGame = game;
   const previousName = game?.puzzle?.name;
   mode = "practice";
-  game = createGame(pickRandomPuzzle(names.answers, Math.random, previousName, settings.practiceLength));
+  game = createGame(pickRandomPuzzle(answerPools.familiar, Math.random, previousName, settings.practiceLength));
   renderAll();
+}
+
+function switchToObscure() {
+  if (!answerPools.obscure.length) return toast("Names are still loading");
+  if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
+  if (mode === "daily") dailyGame = game;
+  bootObscure();
 }
 
 function returnToDaily() {
   closeOverlay("statsOverlay");
+  if (mode === "obscure") obscureGame = game;
   mode = "daily";
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey());
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar);
   game = dailyGame && dailyGame.puzzle?.dateKey === puzzle.dateKey
     ? dailyGame
     : loadDailySave(puzzle.dateKey) || createGame(puzzle);
