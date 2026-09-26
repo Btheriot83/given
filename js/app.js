@@ -15,6 +15,9 @@ import {
   puzzleNumber,
   applyStreak,
   evaluateGuess,
+  shiftDateKey,
+  historyEndDate,
+  HISTORY_START_DATE,
 } from "./engine.js";
 import { describeName } from "./name-notes.js";
 import { normalizeGroup } from "./leaderboard-core.js";
@@ -84,6 +87,7 @@ let obscureGame = null;
 let lastFocus = null;
 let finishFxTimer;
 let nameNotesPromise;
+let historyCursor;
 let friends = readStore(STORAGE + ":friends", { group: "", nickname: "", playerId: "" });
 let invitedGroup = normalizeGroup(new URLSearchParams(location.search).get("group"));
 let boardDate = localDateKey();
@@ -161,7 +165,7 @@ function saveStats() {
 function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
   document.documentElement.dataset.colorblind = settings.colorblind ? "on" : "off";
-  document.querySelector('meta[name="theme-color"]').setAttribute("content", settings.dark ? "#121213" : "#ffffff");
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", settings.dark ? "#030e2b" : "#061947");
   toggleSwitch(els.darkSwitch, settings.dark);
   toggleSwitch(els.cbSwitch, settings.colorblind);
   toggleSwitch(els.hardSwitch, settings.hardMode);
@@ -177,7 +181,7 @@ function toggleSwitch(el, on) {
 }
 
 function bootDaily() {
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar);
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights);
   const saved = loadDailySave(puzzle.dateKey);
   mode = "daily";
   if (saved) {
@@ -231,9 +235,9 @@ function saveGame() {
 function renderAll() {
   const p = game.puzzle;
   els.puzzleMeta.textContent = p.dateKey
-    ? `${mode === "obscure" ? "Obscure" : "Daily"} #${puzzleNumber(p.dateKey)}`
+    ? `${mode === "obscure" ? "Obscure" : "Daily"} #${puzzleNumber(p.dateKey)} · ${p.length} letters`
     : `Practice · ${p.length} letters`;
-  els.puzzleSwitch.textContent = mode === "daily" ? "Try obscure" : "Official daily";
+  els.puzzleSwitch.textContent = mode === "daily" ? "Try obscure" : mode === "practice" ? "Daily" : "Official daily";
   els.nextDayNote.hidden = !(p.dateKey && game.status !== "playing");
   els.practiceLengthLink.hidden = Boolean(p.dateKey);
   renderBoard();
@@ -340,6 +344,16 @@ function bindChrome() {
   };
   document.getElementById("friendsBtn").onclick = openFriends;
   document.getElementById("statsFriendsBtn").onclick = () => { closeOverlay("statsOverlay"); openFriends(); };
+  document.getElementById("historyBtn").onclick = () => {
+    const today = localDateKey();
+    const daily = mode === "daily" ? game : dailyGame;
+    historyCursor = historyEndDate(today, daily);
+    document.getElementById("nameHistory").replaceChildren();
+    closeOverlay("statsOverlay");
+    openOverlay("historyOverlay");
+    paintHistory();
+  };
+  document.getElementById("moreHistoryBtn").onclick = paintHistory;
   document.getElementById("createGroupBtn").onclick = () => {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -767,6 +781,38 @@ function paintStats() {
   }
 }
 
+function paintHistory() {
+  const list = document.getElementById("nameHistory");
+  let count = 0;
+  while (historyCursor >= HISTORY_START_DATE && count++ < 30) {
+    const puzzle = pickDailyPuzzle(names.answers, historyCursor, answerPools.familiar, answerPools.lengthWeights);
+    const row = document.createElement("details");
+    row.className = "history-entry";
+    const label = document.createElement("summary");
+    label.textContent = `${historyCursor} · ${titleCase(puzzle.name)} · ${puzzle.length} letters`;
+    const fact = document.createElement("p");
+    fact.textContent = "Loading name fact…";
+    row.append(label, fact);
+    row.addEventListener("toggle", async () => {
+      if (!row.open) return;
+      try {
+        nameNotesPromise ||= fetch("./data/name-notes.json").then(response => {
+          if (!response.ok) throw new Error("name notes");
+          return response.json();
+        });
+        fact.textContent = describeName(puzzle.name, await nameNotesPromise);
+      } catch {
+        nameNotesPromise = null;
+        fact.textContent = "Name fact unavailable. Close and reopen to retry.";
+      }
+    });
+    list.append(row);
+    historyCursor = shiftDateKey(historyCursor, -1);
+  }
+  if (!list.children.length) list.textContent = "Your first daily name appears here after you finish, or tomorrow.";
+  document.getElementById("moreHistoryBtn").hidden = historyCursor < HISTORY_START_DATE;
+}
+
 async function paintNameNote(name) {
   els.nameNoteText.textContent = "Looking up the name…";
   nameNotesPromise ||= fetch("./data/name-notes.json").then((response) => {
@@ -833,7 +879,7 @@ function returnToDaily() {
   closeOverlay("statsOverlay");
   if (mode === "obscure") obscureGame = game;
   mode = "daily";
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar);
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights);
   game = dailyGame && dailyGame.puzzle?.dateKey === puzzle.dateKey
     ? dailyGame
     : loadDailySave(puzzle.dateKey) || createGame(puzzle);

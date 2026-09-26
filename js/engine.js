@@ -1,4 +1,4 @@
-/** Pure GIVEN game engine. Works in the browser and in Node. */
+/** Pure Named game engine. Works in the browser and in Node. */
 
 export const MAX_GUESSES = 6;
 export const MIN_LEN = 4;
@@ -6,6 +6,12 @@ export const MAX_LEN = 7;
 export const PLAY_LENGTH = 5;
 export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
 export const FAMILIAR_START_DATE = "2026-09-27";
+export const HISTORY_START_DATE = "2026-09-26";
+
+export function historyEndDate(today, daily) {
+  return daily?.puzzle?.dateKey === today && ["won", "lost"].includes(daily.status)
+    ? today : shiftDateKey(today, -1);
+}
 
 export function normalizePracticeLength(value) {
   const length = Number(value);
@@ -154,15 +160,29 @@ export function dailyOrder(answers, seed = "GIVEN-DAILY-v2") {
   return arr;
 }
 
-export function pickDailyPuzzle(answers, dateKey, familiarAnswers) {
+export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights) {
   const familiar = dateKey >= FAMILIAR_START_DATE;
   if (familiar && (!Array.isArray(familiarAnswers) || !familiarAnswers.length)) {
     throw new Error("No familiar answers configured");
   }
+  let length = PLAY_LENGTH;
+  if (familiar) {
+    const lengths = [4, 5, 6, 7];
+    const weights = lengths.map((n) => lengthWeights?.[n]);
+    if (!weights.every((weight) => Number.isFinite(weight) && weight > 0)) {
+      throw new Error("No daily length weights configured");
+    }
+    let draw = mulberry32(hashString(`NAMED-LENGTH-v1:${dateKey}`))() * weights.reduce((a, b) => a + b, 0);
+    length = 7;
+    for (let i = 0; i < lengths.length; i++) {
+      draw -= weights[i];
+      if (draw < 0) { length = lengths[i]; break; }
+    }
+  }
   const eligible = (familiar ? familiarAnswers : answers)
-    .filter((name) => normalizeName(name).length === PLAY_LENGTH);
-  if (!eligible.length) throw new Error("No five-letter answers");
-  const order = dailyOrder(eligible, familiar ? "GIVEN-FAMILIAR-v1" : "GIVEN-DAILY-v2");
+    .filter((name) => normalizeName(name).length === length);
+  if (!eligible.length) throw new Error(`No ${length}-letter answers`);
+  const order = dailyOrder(eligible, familiar ? `NAMED-FAMILIAR-v2:${length}` : "GIVEN-DAILY-v2");
   const num = puzzleNumber(dateKey);
   const offset = familiar ? puzzleNumber(FAMILIAR_START_DATE) : 1;
   const name = order[(num - offset + order.length) % order.length];
@@ -305,7 +325,7 @@ export function shareGrid(game, { url = "" } = {}) {
   const score = game.status === "won" ? String(game.guesses.length) : "X";
   const num = game.puzzle.dateKey ? puzzleNumber(game.puzzle.dateKey) : null;
   const title = num
-    ? `GIVEN ${game.puzzle.kind === "obscure" ? "OBSCURE " : ""}${num} ${score}/${MAX_GUESSES}`
-    : `GIVEN PRACTICE · ${game.puzzle.length} LETTERS ${score}/${MAX_GUESSES}`;
+    ? `NAMED ${game.puzzle.kind === "obscure" ? "OBSCURE " : ""}${num} ${score}/${MAX_GUESSES}`
+    : `NAMED PRACTICE · ${game.puzzle.length} LETTERS ${score}/${MAX_GUESSES}`;
   return [title, "", ...rows, ...(url ? ["", url] : [])].join("\n");
 }

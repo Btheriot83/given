@@ -1,11 +1,11 @@
 {
-  "name": "Given",
-  "short_name": "Given",
-  "description": "Guess the given name.",
+  "name": "Named",
+  "short_name": "Named",
+  "description": "A familiar name. A daily discovery.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#6aaa64",
+  "background_color": "#061947",
+  "theme_color": "#061947",
   "icons": [
     {
       "src": "/apple-touch-icon.png",

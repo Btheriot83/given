@@ -25,11 +25,19 @@ import {
   PLAY_LENGTH,
   dateKeyFromPuzzleNumber,
   FAMILIAR_START_DATE,
+  historyEndDate,
 } from "../js/engine.js";
 
 const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
 const nameNotes = JSON.parse(readFileSync(new URL("../data/name-notes.json", import.meta.url)));
 const answerPools = JSON.parse(readFileSync(new URL("../data/answer-pools.json", import.meta.url)));
+
+for (const status of ["won", "lost", "playing"]) {
+  const saved = { puzzle: { dateKey: "2026-09-27" }, status };
+  equal(historyEndDate("2026-09-27", saved), status === "playing" ? "2026-09-26" : "2026-09-27", "archive guards today's answer");
+  equal(historyEndDate("2026-09-28", saved), "2026-09-27", "yesterday's finished game does not reveal today");
+}
+equal(historyEndDate("2026-09-27", null), "2026-09-26", "archive includes missed past days without a save");
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -86,7 +94,7 @@ for (const ch of "BETH") game = typeLetter(game, ch, 4);
 const submitted = submitGuess(game, dict);
 equal(submitted.game.status, "won", "win on beth");
 assert(shareGrid(submitted.game).includes("🟩🟩🟩🟩"), "share greens");
-assert(shareGrid(submitted.game).startsWith("GIVEN PRACTICE"), "practice share is labeled");
+assert(shareGrid(submitted.game).startsWith("NAMED PRACTICE"), "practice share is labeled");
 assert(!shareGrid(submitted.game).includes("http"), "share has no link");
 assert(puzzleNumber("2026-01-01") === 1, "puzzle number origin");
 
@@ -163,17 +171,33 @@ assert(answerPools.familiar.every((name) => {
 equal(FAMILIAR_START_DATE, "2026-09-27", "familiar schedule preserves September 26's existing puzzle");
 equal(pickDailyPuzzle(names.answers, "2026-09-25", answerPools.familiar).name, "AUDIE", "today's existing official puzzle stays unchanged");
 equal(pickDailyPuzzle(names.answers, "2026-09-26", answerPools.familiar).name, "WENDY", "tomorrow's existing official puzzle stays unchanged");
-equal(pickDailyPuzzle(names.answers, FAMILIAR_START_DATE, answerPools.familiar).name, "LUCAS", "familiar schedule starts September 27");
-assert(answerPools.familiar.includes(pickDailyPuzzle(names.answers, "2026-09-28", answerPools.familiar).name), "future official answer is familiar");
+const daily = (date) => pickDailyPuzzle(names.answers, date, answerPools.familiar, answerPools.lengthWeights);
+assert(answerPools.familiar.includes(daily(FAMILIAR_START_DATE).name), "familiar schedule starts September 27");
+assert(answerPools.familiar.includes("BRANDON"), "Brandon is eligible for the official daily");
+const lengthCounts = { 4: 0, 5: 0, 6: 0, 7: 0 };
+const replayDates = {};
+for (let offset = 0; offset < 1461; offset++) {
+  const date = dateKeyFromPuzzleNumber(puzzleNumber(FAMILIAR_START_DATE) + offset);
+  const puzzle = daily(date);
+  equal(puzzle, daily(date), "daily length and answer stay stable for a date");
+  assert(answerPools.familiar.includes(puzzle.name), "official answer remains familiar");
+  lengthCounts[puzzle.length]++;
+  replayDates[puzzle.length] ||= date;
+}
+const totalWeight = Object.values(answerPools.lengthWeights).reduce((a, b) => a + b, 0);
+for (const length of [4, 5, 6, 7]) {
+  assert(lengthCounts[length] > 0, "every supported length appears");
+  assert(Math.abs(lengthCounts[length] / 1461 - answerPools.lengthWeights[length] / totalWeight) < .05, "length mix follows recorded birth frequencies");
+}
 const obscurePuzzle = pickObscurePuzzle(answerPools.obscure, "2026-09-27");
 equal(obscurePuzzle.kind, "obscure", "bonus puzzle is labeled separately");
-assert(obscurePuzzle.name !== pickDailyPuzzle(names.answers, "2026-09-27", answerPools.familiar).name, "daily puzzles have different answers");
+assert(obscurePuzzle.name !== daily("2026-09-27").name, "daily puzzles have different answers");
 equal(pickObscurePuzzle(answerPools.obscure, "2026-09-27"), obscurePuzzle, "obscure answer is stable for the day");
 assert(pickObscurePuzzle(answerPools.obscure, "2026-09-28").name !== obscurePuzzle.name, "obscure answer changes tomorrow");
 let obscureWin = createGame(obscurePuzzle);
 obscureWin.current = obscurePuzzle.name;
 obscureWin = submitGuess(obscureWin, new Set(names.guesses)).game;
-assert(shareGrid(obscureWin).startsWith("GIVEN OBSCURE "), "obscure sharing cannot be mistaken for official score");
+assert(shareGrid(obscureWin).startsWith("NAMED OBSCURE "), "obscure sharing cannot be mistaken for official score");
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
 
 const keys = bestKeyStates(["BERT"], [evaluateGuess("BERT", "BETH")]);
@@ -200,7 +224,7 @@ equal(puzzleNumber(dateKeyFromPuzzleNumber(225)), 225, "puzzle number roundtrip"
 
 const numbered = { ...submitted.game, puzzle: { ...submitted.game.puzzle, dateKey: "2026-08-13" } };
 const shared = shareGrid(numbered);
-assert(shared.startsWith("GIVEN "), "share title");
+assert(shared.startsWith("NAMED "), "share title");
 assert(shared.includes("1/6"), "share score");
 assert(!shared.includes("B · H"), "share is grid only");
 const linkedShare = shareGrid(numbered, { url: "https://given-one.vercel.app/" });
@@ -227,12 +251,20 @@ assert(differentStart, "five-letter alternate opener exists");
 const verifiedTwo = validateResult({ ...payload, guesses: [differentStart, testAnswer] }, names, new Date("2026-09-23T12:00:00Z"));
 equal(verifiedTwo.score, 2, "server accepts an unrestricted first guess");
 const futureDate = "2026-09-27";
-const futureAnswer = pickDailyPuzzle(names.answers, futureDate, answerPools.familiar).name;
+const futureAnswer = daily(futureDate).name;
 const futurePayload = { ...payload, dateKey: futureDate, guesses: [futureAnswer] };
-equal(validateResult(futurePayload, { ...names, familiarAnswers: answerPools.familiar }, new Date("2026-09-27T12:00:00Z")).score, 1, "server validates familiar daily results");
+const serverNames = { ...names, familiarAnswers: answerPools.familiar, lengthWeights: answerPools.lengthWeights };
+equal(validateResult(futurePayload, serverNames, new Date("2026-09-27T12:00:00Z")).score, 1, "server validates familiar daily results");
+for (const date of Object.values(replayDates)) {
+  const puzzle = daily(date);
+  equal(validateResult({ ...payload, dateKey: date, guesses: [puzzle.name] }, serverNames, new Date(`${date}T12:00:00Z`)).score, 1, `server accepts ${puzzle.length}-letter official win`);
+  let wrongLengthRejected = false;
+  try { validateResult({ ...payload, dateKey: date, guesses: [puzzle.name + "A"] }, serverNames, new Date(`${date}T12:00:00Z`)); } catch { wrongLengthRejected = true; }
+  assert(wrongLengthRejected, "server rejects a guess that does not match that day's length");
+}
 let obscureRejected = false;
 try {
-  validateResult({ ...futurePayload, guesses: [obscurePuzzle.name] }, { ...names, familiarAnswers: answerPools.familiar }, new Date("2026-09-27T12:00:00Z"));
+  validateResult({ ...futurePayload, guesses: [obscurePuzzle.name] }, serverNames, new Date("2026-09-27T12:00:00Z"));
 } catch { obscureRejected = true; }
 assert(obscureRejected, "obscure result does not count on official leaderboard");
 for (const bad of [
