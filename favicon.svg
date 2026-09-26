@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs><linearGradient id="blue" x2="0" y2="1"><stop stop-color="#3bcfff"/><stop offset="1" stop-color="#1540be"/></linearGradient></defs>
-  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#blue)" stroke="#a6edff"/>
-  <text x="16" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#fff">N</text>
+  <defs><linearGradient id="glass" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".55" stop-color="#e3eaee"/><stop offset="1" stop-color="#adbdc9"/></linearGradient></defs>
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="url(#glass)" stroke="#fff"/>
+  <text x="16" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="23" font-weight="900" fill="#425765">N</text>
 </svg>
