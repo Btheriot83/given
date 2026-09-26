@@ -5,6 +5,7 @@ import {
   evaluateGuess,
   validateGuess,
   pickDailyPuzzle,
+  pickObscurePuzzle,
   pickRandomPuzzle,
   normalizePracticeLength,
   checkHardMode,
@@ -23,10 +24,12 @@ import {
   MAX_GUESSES,
   PLAY_LENGTH,
   dateKeyFromPuzzleNumber,
+  FAMILIAR_START_DATE,
 } from "../js/engine.js";
 
 const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
 const nameNotes = JSON.parse(readFileSync(new URL("../data/name-notes.json", import.meta.url)));
+const answerPools = JSON.parse(readFileSync(new URL("../data/answer-pools.json", import.meta.url)));
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -145,6 +148,32 @@ assert(unsupportedLength, "practice does not silently choose more than seven let
 assert(names.answers.filter((name) => name.length === PLAY_LENGTH).length > 365, "five-letter pool spans a year");
 assert(names.answers.filter((name) => name.length === 6).length > 365, "six-letter pool supports varied practice");
 assert(names.answers.filter((name) => name.length === 7).length > 365, "seven-letter pool supports varied practice");
+assert(answerPools.familiar.filter((name) => name.length === 5).length > 150, "official pool has many familiar names");
+assert(answerPools.familiar.filter((name) => name.length === 6).length > 150, "six-letter practice has familiar names");
+assert(answerPools.familiar.filter((name) => name.length === 7).length > 100, "seven-letter practice has familiar names");
+assert(answerPools.obscure.length > 300, "obscure daily has a varied pool");
+assert(!answerPools.familiar.includes("AUDIE") && !answerPools.familiar.includes("LAKEN"), "recent obscure answers leave the official pool");
+assert(answerPools.obscure.includes("AUDIE") && answerPools.obscure.includes("LAKEN"), "uncommon names belong in the optional pool");
+assert(answerPools.familiar.every((name) => names.answers.includes(name)), "familiar answers are valid names");
+assert(answerPools.obscure.every((name) => names.answers.includes(name) && !answerPools.familiar.includes(name)), "obscure answers are valid and distinct");
+assert(answerPools.familiar.every((name) => {
+  const fact = nameNotes.counts[name];
+  return fact.total >= 150_000 || (fact.peakYear >= 2010 && fact.peakCount >= 2_000);
+}), "familiar names meet the documented popularity rule");
+equal(FAMILIAR_START_DATE, "2026-09-27", "familiar schedule preserves September 26's existing puzzle");
+equal(pickDailyPuzzle(names.answers, "2026-09-25", answerPools.familiar).name, "AUDIE", "today's existing official puzzle stays unchanged");
+equal(pickDailyPuzzle(names.answers, "2026-09-26", answerPools.familiar).name, "WENDY", "tomorrow's existing official puzzle stays unchanged");
+equal(pickDailyPuzzle(names.answers, FAMILIAR_START_DATE, answerPools.familiar).name, "LUCAS", "familiar schedule starts September 27");
+assert(answerPools.familiar.includes(pickDailyPuzzle(names.answers, "2026-09-28", answerPools.familiar).name), "future official answer is familiar");
+const obscurePuzzle = pickObscurePuzzle(answerPools.obscure, "2026-09-27");
+equal(obscurePuzzle.kind, "obscure", "bonus puzzle is labeled separately");
+assert(obscurePuzzle.name !== pickDailyPuzzle(names.answers, "2026-09-27", answerPools.familiar).name, "daily puzzles have different answers");
+equal(pickObscurePuzzle(answerPools.obscure, "2026-09-27"), obscurePuzzle, "obscure answer is stable for the day");
+assert(pickObscurePuzzle(answerPools.obscure, "2026-09-28").name !== obscurePuzzle.name, "obscure answer changes tomorrow");
+let obscureWin = createGame(obscurePuzzle);
+obscureWin.current = obscurePuzzle.name;
+obscureWin = submitGuess(obscureWin, new Set(names.guesses)).game;
+assert(shareGrid(obscureWin).startsWith("GIVEN OBSCURE "), "obscure sharing cannot be mistaken for official score");
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
 
 const keys = bestKeyStates(["BERT"], [evaluateGuess("BERT", "BETH")]);
@@ -197,6 +226,15 @@ const differentStart = names.guesses.find((name) => name.length === PLAY_LENGTH 
 assert(differentStart, "five-letter alternate opener exists");
 const verifiedTwo = validateResult({ ...payload, guesses: [differentStart, testAnswer] }, names, new Date("2026-09-23T12:00:00Z"));
 equal(verifiedTwo.score, 2, "server accepts an unrestricted first guess");
+const futureDate = "2026-09-27";
+const futureAnswer = pickDailyPuzzle(names.answers, futureDate, answerPools.familiar).name;
+const futurePayload = { ...payload, dateKey: futureDate, guesses: [futureAnswer] };
+equal(validateResult(futurePayload, { ...names, familiarAnswers: answerPools.familiar }, new Date("2026-09-27T12:00:00Z")).score, 1, "server validates familiar daily results");
+let obscureRejected = false;
+try {
+  validateResult({ ...futurePayload, guesses: [obscurePuzzle.name] }, { ...names, familiarAnswers: answerPools.familiar }, new Date("2026-09-27T12:00:00Z"));
+} catch { obscureRejected = true; }
+assert(obscureRejected, "obscure result does not count on official leaderboard");
 for (const bad of [
   { ...payload, guesses: ["AAAAA"] },
   { ...payload, guesses: [] },

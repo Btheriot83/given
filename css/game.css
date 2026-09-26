@@ -123,6 +123,7 @@ button {
   gap: 12px;
   text-align: center;
   transform: translateY(-6px);
+  flex-wrap: wrap;
 }
 
 .puzzle-meta {
@@ -139,7 +140,7 @@ button {
   color: var(--muted);
   font-size: 13px;
 }
-.practice-length-link {
+.practice-length-link, .puzzle-switch {
   padding-left: 12px;
   border-left: 1px solid var(--hairline);
   color: var(--correct);
@@ -203,6 +204,7 @@ button {
 .icon-btn:focus-visible,
 .key:focus-visible,
 .practice-length-link:focus-visible,
+.puzzle-switch:focus-visible,
 .length-options button:focus-visible,
 .next-name-btn:focus-visible,
 .switch:focus-visible,
@@ -495,6 +497,7 @@ button {
   text-align: center;
   margin: 16px 0;
 }
+.stats-scope { margin: 16px 0 -8px; color: var(--muted); font-size: 12px; }
 .stat b { display: block; font-size: 32px; font-weight: 700; }
 .stat span { font-size: 11px; text-transform: uppercase; color: var(--muted); }
 .dist-title {
@@ -671,7 +674,7 @@ button {
   .board { --tile: min(39px, calc((100vw - 42px - (var(--len, 5) - 1) * 4px) / var(--len, 5)), calc((100dvh - 295px) / 6.3)); gap: 4px; }
   .row { gap: 4px; }
   .puzzle-meta { font-size: 10px; }
-  .practice-length-link { font-size: 10px; }
+  .practice-length-link, .puzzle-switch { font-size: 10px; }
   .keyboard { gap: 5px; padding: 2px 7px max(7px, env(safe-area-inset-bottom)); }
   .kb-row { gap: 4px; }
   .key { height: 46px; font-size: 12px; }

@@ -1,6 +1,6 @@
 # Given
 
-Guess the daily five-letter first name in six tries. No letters are revealed before the first guess.
+Guess a familiar five-letter first name each day in six tries. For a second daily challenge, try the optional Obscure puzzle. No letters are revealed before the first guess.
 
 ## Play locally
 
@@ -25,12 +25,13 @@ After the first deploy, the game is at `https://<project>.vercel.app/`. Share th
 
 ## Rules
 
-- 6 guesses at a first name. The shared daily is five letters; unranked practice can be set to five, six, or seven letters in Settings.
+- 6 guesses at a first name. The official and Obscure dailies are five letters; unlimited unranked practice can be set to five, six, or seven letters in Settings.
 - The board starts empty; every guess must be a real first name matching that round’s length.
 - Bright green means the right spot, yellow means the wrong spot, and gray means the letter is absent (including duplicate-letter handling).
-- One daily puzzle per local calendar date; a missed day is replaced by the new day's name. An open tab refreshes its daily puzzle at local midnight. Practice is unlimited and does not affect the daily streak.
+- There is one official daily and one optional Obscure puzzle per local calendar date. A missed day is replaced by the new names; an open tab refreshes the active daily at local midnight. Only the official daily affects streaks and the friends board. Obscure progress is saved separately on the device.
+- The official daily uses the existing answer sequence through September 26, 2026, so games already in progress and leaderboard results remain valid. From September 27 onward it uses the familiar pool. Familiar answers have at least 150,000 published U.S. births for that spelling, or a peak of at least 2,000 births in a year since 2010. The optional Obscure pool has 5,000–19,999 total recorded births, excluding familiar answers. These are selection rules, not a measure of every culture's familiarity.
 - After a finished round, **Play another name** starts an unranked practice round with a different answer at the selected length. Changing the length applies to the next round and does not erase the current board. It does not reset the shared daily or its friends-board score.
-- Existing in-progress daily games keep their submitted guesses and start the next row empty when upgraded from the old clue rules. Completed games and scores remain intact.
+- Existing in-progress official games keep their saved answer and submitted guesses. Completed games and scores remain intact.
 
 ## Play with friends
 
@@ -45,7 +46,7 @@ GIVEN 266 3/6
 https://given-one.vercel.app/
 ```
 
-The trophy button opens a friends board. Create an eight-character code or join one from a friend's link, choose a nickname, and finish the daily puzzle. Scores rank by fewest guesses; losses show `X/6`. Practice rounds do not count. Codes are unlisted, not a privacy or identity guarantee. There is no login, so this is for friendly competition, not a cheat-proof public contest. A device can post once per group per day; entries expire after 90 days. The score endpoint replays submitted guesses against the daily puzzle and never returns the answer.
+The trophy button opens a friends board. Create an eight-character code or join one from a friend's link, choose a nickname, and finish the official daily puzzle. Scores rank by fewest guesses; losses show `X/6`. Obscure and practice rounds do not count. Codes are unlisted, not a privacy or identity guarantee. There is no login, so this is for friendly competition, not a cheat-proof public contest. A device can post once per group per day; entries expire after 90 days. The score endpoint replays submitted guesses against the official daily puzzle and never returns the answer.
 
 ## Name notes
 
@@ -55,5 +56,6 @@ To refresh the checked-in compact data file after obtaining SSA's `names.zip`:
 
 ```bash
 node scripts/build-name-notes.mjs /path/to/names.zip
+node scripts/build-answer-pools.mjs
 npm test
 ```
