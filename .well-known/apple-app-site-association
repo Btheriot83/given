@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["CC77B78CLH.com.theriot.named"],
+        "components": [
+          { "/": "/join/*", "comment": "Friends-board invites open Named for iPhone" }
+        ]
+      }
+    ]
+  }
+}
