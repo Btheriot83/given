@@ -71,7 +71,30 @@ const els = {
   activeGroupCode: document.getElementById("activeGroupCode"),
   friendsStatus: document.getElementById("friendsStatus"),
   leaderboardList: document.getElementById("leaderboardList"),
+  app: document.querySelector(".app"),
+  marqueePill: document.getElementById("marqueePill"),
+  resultStub: document.getElementById("resultStub"),
+  stubName: document.getElementById("stubName"),
+  stubScore: document.getElementById("stubScore"),
+  stubKicker: document.getElementById("stubKicker"),
+  stubWord: document.getElementById("stubWord"),
+  stubFact: document.getElementById("stubFact"),
+  stubShareBtn: document.getElementById("stubShareBtn"),
+  stubCountdown: document.getElementById("stubCountdown"),
+  stubNextLabel: document.getElementById("stubNextLabel"),
+  stubStatsBtn: document.getElementById("stubStatsBtn"),
+  stubDailyBtn: document.getElementById("stubDailyBtn"),
 };
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+/* Bulb rings for the marquee pill and the NOW PLAYING banner (see Marquee.swift BulbRing). */
+const bulbSpecs = {
+  marqueePill: { inset: 7.25, spacing: 15, bulb: 2.3 },
+  outcome: { inset: 9.5, spacing: 16, bulb: 3.1, radius: 22 },
+};
+const bulbObserver = "ResizeObserver" in window ? new ResizeObserver((entries) => {
+  for (const entry of entries) layoutBulbs(entry.target, entry.target.dataset.chase === "on");
+}) : null;
+
 
 let names = { guesses: [], answers: [] };
 let answerPools = { familiar: [], obscure: [] };
@@ -165,7 +188,7 @@ function saveStats() {
 function applySettings() {
   document.documentElement.dataset.theme = settings.dark ? "dark" : "light";
   document.documentElement.dataset.colorblind = settings.colorblind ? "on" : "off";
-  document.querySelector('meta[name="theme-color"]').setAttribute("content", settings.dark ? "#d5dce2" : "#e9edf1");
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", settings.dark ? "#120203" : "#1a0305");
   toggleSwitch(els.darkSwitch, settings.dark);
   toggleSwitch(els.cbSwitch, settings.colorblind);
   toggleSwitch(els.hardSwitch, settings.hardMode);
@@ -243,57 +266,170 @@ function renderAll() {
   renderBoard();
   renderKeys();
   paintOutcome();
+  layoutBulbs(els.marqueePill);
 }
 
-function paintOutcome() {
-  if (game.status === "playing") {
-    els.outcome.hidden = true;
+function paintOutcome(animate = false) {
+  const finished = game.status !== "playing";
+  els.app.classList.toggle("is-finished", finished);
+  els.marqueePill.hidden = finished;
+  els.outcome.hidden = !finished;
+  els.resultStub.hidden = !finished;
+  if (!finished) {
+    els.outcome.classList.remove("drop");
+    els.resultStub.classList.remove("rise");
     return;
   }
-  els.outcome.hidden = false;
+  const won = game.status === "won";
+  const daily = Boolean(game.puzzle.dateKey);
+  const obscure = game.puzzle.kind === "obscure";
+  const name = titleCase(game.puzzle.name);
   els.outcome.dataset.result = game.status;
-  els.outcomeTitle.textContent = game.status === "won"
-    ? `${winWord(game.guesses.length)} ${game.guesses.length}/6`
-    : `The name was ${titleCase(game.puzzle.name)}.`;
-  els.outcomeDetail.textContent = game.puzzle.kind === "obscure"
-    ? "Another obscure name arrives tomorrow"
-    : `Next: ${settings.practiceLength}-letter practice`;
+  els.outcomeDetail.textContent = won ? "Now playing:" : "The name was:";
+  els.outcomeTitle.textContent = game.puzzle.name.toUpperCase();
+  els.outcomeTitle.setAttribute("aria-label", won ? `Now playing: ${name}` : `The name was ${name}`);
+  els.stubName.textContent = game.puzzle.name.toUpperCase();
+  els.stubScore.textContent = won ? `${game.guesses.length}/6` : "X/6";
+  els.stubKicker.textContent = obscure
+    ? `Obscure #${puzzleNumber(game.puzzle.dateKey)}`
+    : !daily
+      ? `Practice · ${game.puzzle.length} letters`
+      : won
+        ? `Streak ${stats.streak}`
+        : stats.maxStreak > 0 ? `Streak reset · best ${stats.maxStreak}` : "Streak 0";
+  els.stubWord.textContent = won ? winWord(game.guesses.length) : daily ? "One more tomorrow." : "Try again?";
+  paintNameNote(game.puzzle.name);
+  const obscureDone = obscureGame?.puzzle?.dateKey === localDateKey() && obscureGame.status !== "playing";
+  const nextIsObscure = mode === "daily" && !obscureDone;
+  const nextLabel = nextIsObscure ? "Play obscure" : "Another name";
+  els.nextNameBtn.querySelector(".next-name-full").textContent = nextLabel;
+  els.nextNameBtn.querySelector(".next-name-compact").textContent = nextIsObscure ? "Obscure" : "Next name";
+  els.nextNameBtn.setAttribute("aria-label", nextIsObscure ? "Play today’s obscure puzzle" : "Play another name");
+  els.nextNameBtn.onclick = nextIsObscure ? switchToObscure : startPractice;
+  els.stubNextLabel.textContent = mode === "daily" ? "Next name in" : mode === "obscure" ? "Next obscure in" : "New daily name in";
+  els.stubDailyBtn.hidden = mode === "daily";
   els.nextDayNote.hidden = !game.puzzle.dateKey;
+  if (animate && !reducedMotion.matches) {
+    els.outcome.classList.remove("drop");
+    els.resultStub.classList.remove("rise");
+    void els.outcome.offsetWidth;
+    els.outcome.classList.add("drop");
+    els.resultStub.classList.add("rise");
+  }
+  layoutBulbs(els.outcome, won);
+}
+
+function layoutBulbs(host, chase = true) {
+  const layer = host.querySelector(".pill-bulbs, .banner-bulbs");
+  const spec = bulbSpecs[host.id];
+  if (!layer || !spec || host.hidden) return;
+  host.dataset.chase = chase ? "on" : "off";
+  const w = host.offsetWidth;
+  const h = host.offsetHeight;
+  const key = `${w}x${h}:${chase}`;
+  if (!w || !h || layer.dataset.key === key) return;
+  layer.dataset.key = key;
+  if (bulbObserver && !host.dataset.observed) {
+    host.dataset.observed = "1";
+    bulbObserver.observe(host);
+  }
+  const points = ringPoints(w, h, spec.inset, spec.radius ?? h / 2, spec.spacing);
+  const gid = `bulbGlow-${host.id}`;
+  const halo = spec.bulb * 3.4;
+  let off = "";
+  const on = ["", "", ""];
+  points.forEach(([x, y], i) => {
+    off += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(spec.bulb * 0.9).toFixed(2)}"/>`;
+    on[i % 3] += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${halo.toFixed(2)}"/>`;
+  });
+  layer.innerHTML = `<svg class="${chase ? "bulbs-chase" : ""}" viewBox="0 0 ${w} ${h}" aria-hidden="true" focusable="false">
+    <defs><radialGradient id="${gid}"><stop offset="0" stop-color="#fff"/><stop offset=".2" stop-color="#fff" stop-opacity=".92"/><stop offset=".3" stop-color="#ffd37a"/><stop offset=".55" stop-color="#ffd37a" stop-opacity=".4"/><stop offset="1" stop-color="#ffd37a" stop-opacity="0"/></radialGradient></defs>
+    <g class="bulb-off">${off}</g>
+    ${on.map((c, g) => `<g class="ph${g}" fill="url(#${gid})">${c}</g>`).join("")}
+  </svg>`;
+}
+
+function ringPoints(width, height, inset, radius, spacing) {
+  const bw = width - 2 * inset;
+  const bh = height - 2 * inset;
+  if (bw <= 0 || bh <= 0) return [];
+  const r = Math.max(Math.min(radius - inset, bw / 2, bh / 2), 0.5);
+  const sx = Math.max(bw - 2 * r, 0);
+  const sy = Math.max(bh - 2 * r, 0);
+  const arc = (Math.PI / 2) * r;
+  const total = 2 * sx + 2 * sy + 4 * arc;
+  const n = Math.max(4, Math.round(total / spacing));
+  const o = inset;
+  const at = (s0) => {
+    let s = ((s0 % total) + total) % total;
+    if (s < sx) return [o + r + s, o];
+    s -= sx;
+    if (s < arc) { const a = -Math.PI / 2 + s / r; return [o + bw - r + r * Math.cos(a), o + r + r * Math.sin(a)]; }
+    s -= arc;
+    if (s < sy) return [o + bw, o + r + s];
+    s -= sy;
+    if (s < arc) { const a = s / r; return [o + bw - r + r * Math.cos(a), o + bh - r + r * Math.sin(a)]; }
+    s -= arc;
+    if (s < sx) return [o + bw - r - s, o + bh];
+    s -= sx;
+    if (s < arc) { const a = Math.PI / 2 + s / r; return [o + r + r * Math.cos(a), o + bh - r + r * Math.sin(a)]; }
+    s -= arc;
+    if (s < sy) return [o, o + bh - r - s];
+    s -= sy;
+    const a = Math.PI + s / r;
+    return [o + r + r * Math.cos(a), o + r + r * Math.sin(a)];
+  };
+  return Array.from({ length: n }, (_, i) => at((i / n) * total - arc / 2));
 }
 
 function renderBoard() {
   const len = game.puzzle.length;
   els.board.style.setProperty("--len", String(len));
-  els.board.replaceChildren();
+  const reuse = els.board.children.length === MAX_GUESSES && els.board.dataset.len === String(len);
+  if (!reuse) {
+    els.board.replaceChildren();
+    els.board.dataset.len = String(len);
+  }
   for (let r = 0; r < MAX_GUESSES; r++) {
-    const row = document.createElement("div");
-    row.className = "row";
-    if (r === game.guesses.length && game.status === "playing") row.classList.add("active");
-    row.dataset.row = String(r);
+    let row = els.board.children[r];
+    if (!row) {
+      row = document.createElement("div");
+      row.className = "row";
+      row.dataset.row = String(r);
+      row.setAttribute("role", "row");
+      els.board.appendChild(row);
+    }
+    row.classList.toggle("active", r === game.guesses.length && game.status === "playing");
+    row.classList.toggle("spare", game.status !== "playing" && r >= game.guesses.length);
     const filled =
       game.guesses[r] || (r === game.guesses.length && game.status === "playing" ? game.current : "");
     const ev = game.evaluations[r];
+    if (!ev) row.classList.remove("chasing", "shake");
     for (let c = 0; c < len; c++) {
-      const tile = document.createElement("div");
-      tile.className = "tile";
-      tile.dataset.row = String(r);
-      tile.dataset.col = String(c);
-      const ch = filled[c] || "";
-      tile.textContent = ch;
-      tile.setAttribute("role", "gridcell");
-      if (ev) {
-        tile.dataset.state = ev[c];
-        tile.setAttribute("aria-label", `${ch} ${ev[c]}`);
-      } else if (ch) {
-        tile.dataset.state = "tbd";
-        tile.setAttribute("aria-label", ch);
-      } else {
-        tile.dataset.state = "empty";
-        tile.setAttribute("aria-label", "empty");
+      let tile = row.children[c];
+      if (!tile) {
+        tile = document.createElement("div");
+        tile.className = "tile";
+        tile.dataset.row = String(r);
+        tile.dataset.col = String(c);
+        tile.setAttribute("role", "gridcell");
+        row.appendChild(tile);
       }
-      row.appendChild(tile);
+      const ch = filled[c] || "";
+      if (tile.textContent !== ch) tile.textContent = ch;
+      let state;
+      let label;
+      if (ev) {
+        state = ev[c];
+        label = `${ch} ${ev[c]}`;
+      } else {
+        tile.classList.remove("flip", "landed", "lift");
+        state = ch ? "tbd" : "empty";
+        label = ch || "empty";
+      }
+      if (tile.dataset.state !== state) tile.dataset.state = state;
+      tile.setAttribute("aria-label", label);
     }
-    els.board.appendChild(row);
   }
 }
 
@@ -315,7 +451,11 @@ function buildKeyboard() {
       btn.className = "key" + (key.length > 1 ? " wide" : "");
       btn.dataset.key = key;
       btn.type = "button";
-      btn.textContent = key === "DEL" ? "⌫" : key;
+      if (key === "DEL") {
+        btn.innerHTML = '<svg viewBox="0 0 28 20" aria-hidden="true" focusable="false"><path d="M9 2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9l-7.5-8z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M13 6.5l7 7m0-7-7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+      } else {
+        btn.textContent = key;
+      }
       btn.setAttribute("aria-label", key === "DEL" ? "Backspace" : key === "ENTER" ? "Enter" : key);
       btn.addEventListener("click", () => handleKey(key));
       rowEl.appendChild(btn);
@@ -410,6 +550,12 @@ function bindChrome() {
     startPractice();
   };
   els.shareBtn.onclick = share;
+  els.stubShareBtn.onclick = share;
+  els.stubStatsBtn.onclick = () => {
+    paintStats();
+    openOverlay("statsOverlay");
+  };
+  els.stubDailyBtn.onclick = returnToDaily;
   els.practiceBtn.onclick = startPractice;
   els.statsObscureBtn.onclick = switchToObscure;
   els.nextNameBtn.onclick = startPractice;
@@ -494,22 +640,15 @@ async function submit() {
   if (game.status === "won") {
     await liftWin();
     recordFinish(true);
-    paintOutcome();
+    renderBoard();
+    els.board.children[game.guesses.length - 1]?.classList.add("chasing");
+    paintOutcome(true);
     showFinishEffect("won");
-    toast(winWord(game.guesses.length));
-    setTimeout(() => {
-      paintStats();
-      if (!document.querySelector(".overlay.open")) openOverlay("statsOverlay");
-    }, 450);
   } else if (game.status === "lost") {
     recordFinish(false);
-    paintOutcome();
+    renderBoard();
+    paintOutcome(true);
     showFinishEffect("lost");
-    toast(`The name was ${titleCase(game.puzzle.name)}`, 2400);
-    setTimeout(() => {
-      paintStats();
-      if (!document.querySelector(".overlay.open")) openOverlay("statsOverlay");
-    }, 700);
   } else {
     renderBoard();
   }
@@ -543,6 +682,7 @@ function tickCountdown() {
   const m = String(Math.floor(ms / 60000)).padStart(2, "0");
   const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
   els.countdown.textContent = `${h}:${m}:${s}`;
+  els.stubCountdown.textContent = `${h}:${m}:${s}`;
 }
 
 function shakeCurrent() {
@@ -574,6 +714,7 @@ function flipRow(rowIndex, evaluation, guess) {
           tile.dataset.state = evaluation[i];
           tile.setAttribute("aria-label", `${guess[i]} ${evaluation[i]}`);
         }, 250);
+        setTimeout(() => tile.classList.add("landed"), 500);
         if (i === tiles.length - 1) setTimeout(resolve, 520);
       }, i * 300);
     });
@@ -595,21 +736,15 @@ function liftWin() {
 function showFinishEffect(result) {
   clearTimeout(finishFxTimer);
   els.finishFx.replaceChildren();
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  els.finishFx.className = `finish-fx ${result}`;
-  const count = result === "won" ? 28 : 12;
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement("i");
-    piece.style.setProperty("--x", `${Math.round(5 + Math.random() * 90)}%`);
-    piece.style.setProperty("--delay", `${Math.round(Math.random() * 380)}ms`);
-    piece.style.setProperty("--drift", `${Math.round((Math.random() - 0.5) * 150)}px`);
-    piece.style.setProperty("--turn", `${Math.round((Math.random() - 0.5) * 800)}deg`);
-    els.finishFx.appendChild(piece);
-  }
+  els.finishFx.className = "finish-fx";
+  if (result !== "won" || reducedMotion.matches) return;
+  void els.finishFx.offsetWidth;
+  els.finishFx.className = "finish-fx won";
+  els.finishFx.append(document.createElement("i"), document.createElement("i"));
   finishFxTimer = setTimeout(() => {
     els.finishFx.className = "finish-fx";
     els.finishFx.replaceChildren();
-  }, 2000);
+  }, 3800);
 }
 
 function toast(msg, ms = 2000) {
@@ -815,6 +950,7 @@ function paintHistory() {
 
 async function paintNameNote(name) {
   els.nameNoteText.textContent = "Looking up the name…";
+  els.stubFact.textContent = "Looking up the name…";
   nameNotesPromise ||= fetch("./data/name-notes.json").then((response) => {
     if (!response.ok) throw new Error("name notes");
     return response.json();
@@ -823,10 +959,14 @@ async function paintNameNote(name) {
     const notes = await nameNotesPromise;
     if (game?.puzzle?.name === name && game.status !== "playing") {
       els.nameNoteText.textContent = describeName(name, notes);
+      els.stubFact.textContent = els.nameNoteText.textContent;
     }
   } catch {
     nameNotesPromise = null;
-    if (game?.puzzle?.name === name) els.nameNoteText.textContent = "Name note unavailable right now.";
+    if (game?.puzzle?.name === name) {
+      els.nameNoteText.textContent = "Name note unavailable right now.";
+      els.stubFact.textContent = els.nameNoteText.textContent;
+    }
   }
 }
 

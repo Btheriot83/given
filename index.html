@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#e9edf1" />
+  <meta name="theme-color" content="#1a0305" />
+  <meta name="color-scheme" content="dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Named" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -24,52 +25,104 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="preload" href="fonts/alfa-slab-one.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/oswald.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="img/curtain.webp" as="image" type="image/webp" fetchpriority="high" />
   <link rel="stylesheet" href="css/game.css" />
 </head>
 <body>
+  <div class="stage" aria-hidden="true">
+    <div class="curtain"></div>
+    <div class="spotlight"></div>
+    <div class="vignette"></div>
+    <div class="valance"></div>
+  </div>
+
   <div class="app">
     <header class="header">
-      <div class="header-left">
+      <nav class="icon-row" aria-label="Game menu">
         <button class="icon-btn" type="button" id="helpBtn" aria-label="How to play">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.8.4-1.4 1-1.4 2v.2"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 9.1a3.5 3.5 0 1 1 5 3.2c-1 .5-1.6 1.2-1.6 2.3v.6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="18.6" r="1.6" fill="currentColor"/></svg>
         </button>
-      </div>
-      <div class="masthead">
-        <div class="wordmark">Named</div>
-      </div>
-      <div class="header-right">
         <button class="icon-btn" type="button" id="friendsBtn" aria-label="Friends board">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 20h8M12 16v4M7 4h10v7a5 5 0 0 1-10 0V4ZM7 6H4v2a4 4 0 0 0 4 4M17 6h3v2a4 4 0 0 1-4 4"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.5 3.5h11v2h3v2.2a4.6 4.6 0 0 1-4.1 4.6 5.6 5.6 0 0 1-3.2 2.6V17h2.6v2.2H8.2V17h2.6v-2.1a5.6 5.6 0 0 1-3.2-2.6 4.6 4.6 0 0 1-4.1-4.6V5.5h3zm0 3.8H5.2v.4a2.8 2.8 0 0 0 1.5 2.5 6 6 0 0 1-.2-1.5zm11 0v1.4a6 6 0 0 1-.2 1.5 2.8 2.8 0 0 0 1.5-2.5v-.4z"/><rect x="6.8" y="19.8" width="10.4" height="1.9" rx=".6" fill="currentColor"/></svg>
         </button>
         <button class="icon-btn" type="button" id="statsBtn" aria-label="Statistics">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 18V10M12 18V6M18 18v-7"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="11" width="4.6" height="8.5" rx="1.4" fill="currentColor"/><rect x="9.7" y="6.5" width="4.6" height="13" rx="1.4" fill="currentColor"/><rect x="15.9" y="4.5" width="4.6" height="15" rx="1.4" fill="currentColor"/></svg>
         </button>
         <button class="icon-btn" type="button" id="settingsBtn" aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m9 3-.6 2.2-2 .9-2-.7L2.7 8l1.5 1.6-.2 2.2L2.5 13l1.6 3 2.1-.1 1.7 1.5.3 2.2 3.4.6 1-1.9 2.2-.5 1.8 1.1 2.5-2.3-.9-2 .7-2.1 2-1-.8-3.3-2.2-.2-1.5-1.7.1-2.2-3.1-1.5-1.5 1.6-2.2-.1Z"/><circle cx="12" cy="11.5" r="3"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2.5h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.6.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6-2.6-.5v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/></svg>
         </button>
-      </div>
+      </nav>
+      <h1 class="neon" aria-label="Named">
+        <svg class="neon-glass" viewBox="-22 -18 470 180" aria-hidden="true" focusable="false">
+          <defs>
+            <!-- A single-stroke glass tube traced from the Pacifico script (SIL OFL). -->
+            <path id="neonTube" d="M377.2 78.7C377.3 78.6 377.4 80.9 377.7 77.9C378.1 74.8 378.6 66.0 379.3 60.5C380.0 55.0 380.9 49.7 381.9 44.9C382.9 40.1 384.1 35.2 385.2 31.6C386.3 28.1 387.6 25.3 388.4 23.5C389.2 21.6 389.6 21.4 390.2 20.6C390.9 19.8 391.4 19.2 392.4 18.7C393.4 18.2 395.2 17.7 396.3 17.5C397.4 17.3 398.2 17.4 399.0 17.6C399.8 17.8 400.5 18.1 401.1 18.5C401.7 18.9 402.0 18.7 402.6 20.1C403.1 21.4 404.1 24.1 404.5 26.5C404.8 28.9 404.9 30.9 404.6 34.3C404.4 37.8 403.8 43.4 403.0 47.4C402.3 51.4 401.5 54.1 400.2 58.3C398.8 62.5 396.8 68.3 395.1 72.4C393.4 76.6 392.7 80.4 390.0 83.1C387.2 85.9 380.5 88.1 378.6 89.1M14.8 49.8C14.8 49.6 14.1 49.6 15.0 48.3C15.8 47.0 18.2 43.7 19.7 42.0C21.2 40.2 22.5 39.0 24.0 37.7C25.4 36.5 27.1 35.3 28.4 34.5C29.7 33.7 30.5 33.4 31.8 32.9C33.1 32.5 34.7 32.2 36.4 31.8C38.1 31.5 40.7 31.0 42.2 30.9C43.6 30.8 43.9 30.7 44.9 31.2C45.8 31.6 47.1 32.6 47.7 33.7C48.4 34.7 48.8 36.2 49.0 37.6C49.3 38.9 49.5 37.5 49.5 41.7C49.5 45.8 49.0 59.0 49.1 62.7C49.3 66.5 50.1 63.9 50.3 64.1M344.8 115.6C345.0 115.9 345.8 116.3 346.3 117.1C346.7 117.9 346.9 119.4 347.5 120.4C348.0 121.3 348.7 122.3 349.5 123.0C350.3 123.7 351.3 124.3 352.2 124.7C353.2 125.0 353.3 125.4 355.3 125.1C357.3 124.8 362.0 124.0 364.5 122.8C366.9 121.7 368.2 119.6 370.1 118.4C372.0 117.3 374.8 116.6 376.0 115.9C377.3 115.3 377.2 114.8 377.4 114.6M377.7 114.6C378.0 114.8 378.5 114.7 379.3 115.8C380.0 116.8 381.4 119.8 382.3 121.0C383.2 122.3 383.5 122.6 384.5 123.1C385.6 123.7 387.3 124.2 388.6 124.3C390.0 124.4 391.1 124.1 392.7 123.8C394.3 123.4 396.8 122.8 398.5 122.0C400.2 121.1 401.2 120.4 403.1 118.7C404.9 117.0 408.2 113.3 409.5 111.7C410.9 110.0 410.9 109.5 411.2 108.8C411.5 108.1 411.4 107.5 411.4 107.3M200.1 116.3C197.4 117.3 187.8 121.4 183.9 122.7C180.1 124.0 178.6 124.0 177.0 124.2C175.3 124.3 174.9 123.8 174.1 123.5C173.3 123.2 172.8 123.3 172.0 122.1C171.3 121.0 170.3 117.7 169.7 116.5C169.0 115.2 168.4 115.2 168.1 114.9M377.1 78.7C376.8 78.5 377.9 77.5 375.5 77.7C373.2 77.9 365.7 78.9 362.8 79.7C359.9 80.5 359.7 81.2 358.2 82.4C356.7 83.5 355.2 84.8 353.7 86.5C352.2 88.2 350.5 90.7 349.4 92.7C348.3 94.6 347.7 95.9 347.1 98.1C346.5 100.2 346.0 102.7 345.6 105.6C345.2 108.5 344.9 113.8 344.8 115.4M50.3 64.1C52.2 63.0 58.4 60.8 61.7 57.4C64.9 54.1 67.6 47.1 69.9 43.9C72.1 40.6 73.6 39.6 75.1 38.1C76.7 36.7 77.6 35.9 79.2 35.0C80.8 34.1 82.3 33.4 84.8 32.7C87.3 32.0 92.0 31.2 94.2 30.9C96.4 30.7 96.7 30.8 97.9 31.1C99.2 31.3 100.6 31.9 101.7 32.5C102.7 33.1 103.4 33.7 104.1 34.5C104.8 35.3 105.3 36.1 105.8 37.2C106.3 38.4 106.7 39.8 107.0 41.3C107.3 42.8 107.7 43.1 107.5 46.4C107.3 49.7 107.3 52.6 105.8 61.2C104.3 69.8 99.8 90.6 98.4 98.3C97.1 106.0 97.6 104.4 97.8 107.4C98.0 110.5 99.1 114.6 99.8 116.6C100.4 118.7 101.0 118.9 101.8 119.9C102.5 120.8 103.4 121.5 104.4 122.1C105.3 122.7 106.3 123.1 107.4 123.4C108.6 123.7 109.0 124.2 111.5 124.0C114.0 123.7 119.9 122.6 122.6 121.9C125.3 121.2 125.5 120.4 127.7 119.7C129.8 118.9 133.9 118.0 135.5 117.5C137.0 116.9 136.8 116.5 137.0 116.3M50.3 64.1C49.4 68.7 46.5 82.4 44.8 91.6C43.1 100.9 40.9 114.4 40.1 119.7C39.4 124.9 40.1 122.5 40.1 123.1M344.6 115.6C344.4 115.8 344.9 116.2 343.2 116.8C341.5 117.4 337.5 118.1 334.4 119.3C331.3 120.5 328.1 122.9 324.5 123.9C321.0 125.0 316.2 125.4 313.1 125.5C310.1 125.6 308.3 125.0 306.3 124.5C304.4 124.0 302.8 123.1 301.6 122.4C300.4 121.7 299.8 121.2 299.1 120.2C298.3 119.1 297.7 117.2 297.0 116.1C296.3 115.0 295.3 114.1 295.0 113.7M137.2 116.3C137.4 116.5 138.3 117.0 138.7 117.8C139.2 118.6 139.4 120.0 139.9 120.9C140.4 121.8 140.9 122.5 141.7 123.1C142.4 123.8 143.3 124.3 144.2 124.7C145.0 125.0 144.9 125.4 146.9 125.1C148.8 124.8 153.6 123.7 155.9 122.7C158.2 121.8 158.5 120.5 160.5 119.2C162.5 117.9 166.7 115.6 168.0 114.9M295.0 112.0C295.7 111.4 297.3 109.1 299.4 108.3C301.4 107.4 304.8 107.6 307.2 106.9C309.6 106.2 311.8 105.3 313.7 104.3C315.5 103.3 317.0 102.3 318.2 101.2C319.5 100.1 320.4 99.5 321.3 97.6C322.3 95.6 323.4 91.9 323.7 89.6C324.0 87.2 323.3 84.9 322.9 83.5C322.6 82.1 322.1 81.8 321.6 81.1C321.1 80.5 321.0 80.0 319.8 79.5C318.6 79.1 316.2 78.3 314.3 78.2C312.5 78.1 310.3 78.5 308.7 78.9C307.1 79.2 306.0 79.6 304.8 80.3C303.6 80.9 302.5 81.8 301.5 82.9C300.4 84.0 299.3 85.3 298.3 86.9C297.4 88.5 296.5 90.2 295.8 92.5C295.1 94.8 294.5 97.9 294.1 100.6C293.7 103.4 293.5 107.3 293.5 109.0C293.4 110.6 293.4 110.2 293.6 110.7C293.8 111.2 294.6 111.8 294.8 112.0M294.8 112.2L294.8 113.6M378.6 89.1C378.4 88.9 377.6 89.4 377.4 87.7C377.2 86.0 377.3 80.4 377.2 78.9M378.6 89.1C378.3 90.4 377.3 93.0 377.1 97.2C376.9 101.5 377.5 111.5 377.6 114.4M137.2 116.1C137.5 113.6 138.4 104.2 139.0 100.8C139.6 97.4 140.0 97.2 140.7 95.5C141.5 93.8 142.3 92.2 143.3 90.6C144.3 89.0 145.5 87.4 146.8 85.9C148.2 84.3 149.9 82.8 151.5 81.6C153.1 80.4 154.9 79.5 156.4 78.9C157.9 78.3 158.6 77.7 160.7 77.9C162.7 78.2 167.2 79.6 168.8 80.3C170.5 80.9 170.1 81.2 170.6 81.8C171.1 82.4 171.7 82.5 171.8 84.0C172.0 85.4 172.0 87.0 171.5 90.4C171.1 93.8 169.7 100.3 169.2 104.4C168.6 108.4 168.3 113.0 168.1 114.8M200 116C201 104 202.5 93 204.5 85C206.5 77 212.5 73.5 219.5 73.5C227 73.5 232.5 78 233.5 86C234.5 96 234 112 234 123.5M234 93C236 81 242.5 73.5 250.5 73.5C258 73.5 263.5 78 264.5 86C265.5 96 264.5 107 266 114C267.5 121 275 123.5 283 120.5C288 118.5 292 115.5 295 113" />
+            <filter id="neonHalo" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="2.4" /></filter>
+          </defs>
+          <use href="#neonTube" />
+        </svg>
+        <span class="neon-lit" aria-hidden="true">
+          <span class="neon-flicker">
+            <svg class="neon-bloom" viewBox="-22 -18 470 180" focusable="false"><use href="#neonTube" /></svg>
+            <svg class="neon-tube" viewBox="-22 -18 470 180" focusable="false">
+              <use href="#neonTube" class="tube-halo" filter="url(#neonHalo)" />
+              <use href="#neonTube" class="tube-edge" />
+              <use href="#neonTube" class="tube-core" />
+            </svg>
+          </span>
+        </span>
+      </h1>
     </header>
-
-    <section class="outcome" id="outcome" aria-labelledby="outcomeTitle" hidden>
-      <div class="outcome-copy">
-        <strong class="outcome-title" id="outcomeTitle" role="status"></strong>
-        <span class="outcome-detail" id="outcomeDetail"></span>
-      </div>
-      <button class="next-name-btn" id="nextNameBtn" type="button" aria-label="Play another name"><span class="next-name-full">Play another name</span><span class="next-name-compact">Next name</span></button>
-    </section>
 
     <div class="board-wrap">
       <div class="board-heading">
-        <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
-        <button class="puzzle-switch" id="puzzleSwitch" type="button">Try obscure</button>
-        <div class="next-day-note" id="nextDayNote" hidden>New name tomorrow</div>
-        <button class="practice-length-link" id="practiceLengthLink" type="button" aria-label="Change length" hidden>Length</button>
+        <div class="marquee-pill" id="marqueePill">
+          <span class="pill-bulbs" aria-hidden="true"></span>
+          <div class="puzzle-meta" id="puzzleMeta" aria-live="polite"></div>
+        </div>
+        <section class="now-playing" id="outcome" aria-labelledby="outcomeTitle" hidden>
+          <span class="banner-bulbs" aria-hidden="true"></span>
+          <div class="banner-card">
+            <span class="banner-kicker" id="outcomeDetail"></span>
+            <strong class="banner-title" id="outcomeTitle" role="status"></strong>
+          </div>
+        </section>
+        <div class="heading-links">
+          <button class="puzzle-switch" id="puzzleSwitch" type="button">Try obscure</button>
+          <div class="next-day-note" id="nextDayNote" hidden>New name tomorrow</div>
+          <button class="practice-length-link" id="practiceLengthLink" type="button" aria-label="Change length" hidden>Length</button>
+        </div>
       </div>
       <div class="board" id="board" role="grid" aria-label="Guesses"></div>
     </div>
 
+    <section class="result-stub" id="resultStub" aria-label="Result" hidden>
+      <div class="ticket stub-ticket">
+        <div class="ticket-face">
+          <div class="stub-head">
+            <strong class="stub-name" id="stubName"></strong>
+            <span class="stub-score" id="stubScore"></span>
+          </div>
+          <span class="stub-kicker" id="stubKicker"></span>
+          <em class="stub-word" id="stubWord"></em>
+          <p class="stub-fact" id="stubFact"></p>
+          <a class="stub-source" href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
+        </div>
+      </div>
+      <div class="stub-actions">
+        <button class="brass-btn" type="button" id="stubShareBtn">Share result</button>
+        <button class="brass-btn next-name-btn" id="nextNameBtn" type="button" aria-label="Play another name"><span class="next-name-full">Play another name</span><span class="next-name-compact">Next name</span></button>
+      </div>
+      <p class="stub-next"><span id="stubNextLabel">Next name in</span> <b id="stubCountdown">00:00:00</b></p>
+      <div class="stub-links">
+        <button class="text-link" type="button" id="stubStatsBtn">Statistics</button>
+        <button class="text-link" type="button" id="stubDailyBtn" hidden>Official daily</button>
+      </div>
+    </section>
+
     <div class="keyboard" id="keyboard" aria-label="Keyboard"></div>
-    <footer class="app-footer" aria-hidden="true"><span></span>GOOD NAMES AHEAD<span></span></footer>
   </div>
 
   <div class="finish-fx" id="finishFx" aria-hidden="true"></div>
@@ -77,125 +130,141 @@
   <div class="toast-wrap"><div class="toast" id="toast" role="status"></div></div>
 
   <div class="overlay" id="helpOverlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-      <button class="close" type="button" data-close="helpOverlay" aria-label="Close">×</button>
-      <h2 id="helpTitle">How to play</h2>
-      <p>Guess today’s familiar first name in 6 tries. The daily changes between 4 and 7 letters—check the badge above the board.</p>
-      <p>Start with any real first name that fits the board. Everyone gets the same name for the same date. No letters are given before your first guess.</p>
-      <p>After each guess, bright green means the right letter in the right spot, yellow means the right letter in a different spot, and gray means the letter is not in the name.</p>
-      <p>Want a second challenge? Tap <b>Try obscure</b> for a harder five-letter puzzle. Both change at your local midnight, but only the official daily counts toward your streak and friends board. Share either grid without spoiling the answer.</p>
-      <div class="example" id="ex1"></div>
-      <p class="example-caption">Example: if the answer were <b>JAMES</b>, this guess shows <b>E</b> in the wrong spot.</p>
+    <div class="modal ticket" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <button class="close" type="button" data-close="helpOverlay" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></button>
+      <div class="ticket-face">
+        <h2 id="helpTitle">How to play</h2>
+        <p class="help-lead">Guess today’s first name in 6 tries.</p>
+        <div class="legend" role="list">
+          <div class="legend-item" role="listitem" aria-label="Right spot looks like this"><div class="tile" data-state="correct" aria-hidden="true">A</div><span>Right spot</span></div>
+          <div class="legend-item" role="listitem" aria-label="Wrong spot looks like this"><div class="tile" data-state="present" aria-hidden="true">A</div><span>Wrong spot</span></div>
+          <div class="legend-item" role="listitem" aria-label="Not in it looks like this"><div class="tile" data-state="absent" aria-hidden="true">A</div><span>Not in it</span></div>
+        </div>
+        <div class="example" id="ex1" role="img" aria-label="Example guess JAMIE: J, A and M right spot; I not in the name; E wrong spot"></div>
+        <p class="example-caption">If the answer is <b>JAMES</b>, the <b>E</b> is in the wrong spot.</p>
+        <p class="help-foot">A new name every midnight. Tap <b>Try obscure</b> for a harder puzzle.</p>
+        <button class="brass-btn wide-btn" type="button" data-close="helpOverlay">Take your seat</button>
+      </div>
     </div>
   </div>
 
   <div class="overlay" id="statsOverlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
-      <button class="close" type="button" data-close="statsOverlay" aria-label="Close">×</button>
-      <h2 id="statsTitle">Statistics</h2>
-      <div class="result-panel" id="resultPanel" hidden>
-        <span class="result-kicker" id="resultKicker"></span>
-        <strong class="result-title" id="resultTitle"></strong>
-        <span class="result-copy" id="resultCopy"></span>
-      </div>
-      <section class="name-note" id="nameNote" aria-label="About the name" hidden>
-        <h3>About the name</h3>
-        <p id="nameNoteText"></p>
-        <a href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
-      </section>
-      <p class="stats-scope" id="statsScopeNote" hidden>Official daily stats · bonus rounds do not count.</p>
-      <div class="stats-row" id="statsRow"></div>
-      <h3 class="dist-title">Guess distribution</h3>
-      <div class="dist" id="dist"></div>
-      <p class="reveal" id="reveal"></p>
-      <div class="actions">
-        <div class="next">
-          <span>New daily name at midnight</span>
-          <b id="countdown">00:00:00</b>
+    <div class="modal ticket" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+      <button class="close" type="button" data-close="statsOverlay" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></button>
+      <div class="ticket-face">
+        <h2 id="statsTitle">Statistics</h2>
+        <div class="result-panel" id="resultPanel" hidden>
+          <span class="result-kicker" id="resultKicker"></span>
+          <strong class="result-title" id="resultTitle"></strong>
+          <span class="result-copy" id="resultCopy"></span>
         </div>
-        <button class="primary" type="button" id="shareBtn">Share result</button>
+        <section class="name-note" id="nameNote" aria-label="About the name" hidden>
+          <h3>About the name</h3>
+          <p id="nameNoteText"></p>
+          <a href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
+        </section>
+        <p class="stats-scope" id="statsScopeNote" hidden>Official daily stats · bonus rounds do not count.</p>
+        <div class="stats-row" id="statsRow"></div>
+        <h3 class="dist-title">Guess distribution</h3>
+        <div class="dist" id="dist"></div>
+        <p class="reveal" id="reveal"></p>
+        <div class="actions">
+          <div class="next">
+            <span>New daily name in</span>
+            <b id="countdown">00:00:00</b>
+          </div>
+          <button class="brass-btn primary" type="button" id="shareBtn">Share result</button>
+        </div>
+        <div class="menu-links">
+          <button class="text-link" type="button" id="practiceBtn">Play another name</button>
+          <button class="text-link" type="button" id="statsObscureBtn">Try today’s obscure puzzle</button>
+          <button class="text-link" type="button" id="todayBtn">Official daily</button>
+          <button class="text-link" type="button" id="statsFriendsBtn">See friends board</button>
+          <button class="text-link" type="button" id="historyBtn">Daily name history</button>
+        </div>
       </div>
-      <button class="text-link" type="button" id="practiceBtn">Play another name</button>
-      <button class="text-link" type="button" id="statsObscureBtn">Try today’s obscure puzzle</button>
-      <button class="text-link" type="button" id="todayBtn">Official daily</button>
-      <button class="text-link" type="button" id="statsFriendsBtn">See friends board</button>
-      <button class="text-link" type="button" id="historyBtn">Daily name history</button>
     </div>
   </div>
 
   <div class="overlay" id="historyOverlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
-      <button class="close" type="button" data-close="historyOverlay" aria-label="Close">×</button>
-      <h2 id="historyTitle">The names so far</h2>
-      <p>Official daily names, newest first. Today stays hidden until you finish. History starts September 26, 2026.</p>
-      <div id="nameHistory"></div>
-      <button class="text-link" type="button" id="moreHistoryBtn" hidden>Earlier names</button>
+    <div class="modal ticket" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+      <button class="close" type="button" data-close="historyOverlay" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></button>
+      <div class="ticket-face">
+        <h2 id="historyTitle">The names so far</h2>
+        <p class="sheet-intro">Official daily names, newest first. Today stays hidden until you finish. History starts September 26, 2026.</p>
+        <div id="nameHistory"></div>
+        <button class="text-link" type="button" id="moreHistoryBtn" hidden>Earlier names</button>
+      </div>
     </div>
   </div>
 
   <div class="overlay" id="friendsOverlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
-      <button class="close" type="button" data-close="friendsOverlay" aria-label="Close">×</button>
-      <h2 id="friendsTitle">Friends board</h2>
-      <p class="friends-intro">A little friendly rivalry. Share a code, play the daily name, and compare guesses without spoilers.</p>
-      <form id="friendsForm" class="friends-form">
-        <label for="nickname">Your nickname</label>
-        <input id="nickname" name="nickname" autocomplete="nickname" maxlength="20" placeholder="Your name" required />
-        <label for="groupCode">Invite code</label>
-        <div class="friends-code-row">
-          <input id="groupCode" name="groupCode" autocapitalize="characters" maxlength="8" placeholder="8-character code" />
-          <button type="button" id="createGroupBtn">New code</button>
+    <div class="modal ticket" role="dialog" aria-modal="true" aria-labelledby="friendsTitle">
+      <button class="close" type="button" data-close="friendsOverlay" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></button>
+      <div class="ticket-face">
+        <h2 id="friendsTitle">Friends board</h2>
+        <p class="friends-intro">A little friendly rivalry. Share a code, play the daily name, and compare guesses without spoilers.</p>
+        <form id="friendsForm" class="friends-form">
+          <label for="nickname">Your nickname</label>
+          <input id="nickname" name="nickname" autocomplete="nickname" maxlength="20" placeholder="Your name" required />
+          <label for="groupCode">Invite code</label>
+          <div class="friends-code-row">
+            <input id="groupCode" name="groupCode" autocapitalize="characters" maxlength="8" placeholder="8-character code" />
+            <button type="button" class="brass-btn small-btn" id="createGroupBtn">New code</button>
+          </div>
+          <button class="brass-btn primary" type="submit">Join board</button>
+        </form>
+        <div id="friendsActive" class="friends-active" hidden>
+          <div class="friends-active-head">
+            <div><span class="result-kicker">Your group</span><strong id="activeGroupCode"></strong></div>
+            <button type="button" class="brass-btn small-btn" id="copyInviteBtn">Copy invite</button>
+          </div>
+          <p id="friendsStatus" role="status"></p>
+          <ol id="leaderboardList" class="leaderboard-list"></ol>
+          <button type="button" class="text-link" id="changeGroupBtn">Use another code</button>
         </div>
-        <button class="primary" type="submit">Join board</button>
-      </form>
-      <div id="friendsActive" class="friends-active" hidden>
-        <div class="friends-active-head">
-          <div><span class="result-kicker">Your group</span><strong id="activeGroupCode"></strong></div>
-          <button type="button" id="copyInviteBtn">Copy invite</button>
-        </div>
-        <p id="friendsStatus" role="status"></p>
-        <ol id="leaderboardList" class="leaderboard-list"></ol>
-        <button type="button" class="text-link" id="changeGroupBtn">Use another code</button>
+        <p class="friends-footnote">Official daily results only. Obscure and practice do not count. One result per device per group, kept for 90 days. Invite codes are unlisted, not private accounts.</p>
       </div>
-      <p class="friends-footnote">Official daily results only. Obscure and practice do not count. One result per device per group, kept for 90 days. Invite codes are unlisted, not private accounts.</p>
     </div>
   </div>
 
   <div class="overlay" id="settingsOverlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-      <button class="close" type="button" data-close="settingsOverlay" aria-label="Close">×</button>
-      <h2 id="settingsTitle">Settings</h2>
-      <div class="settings-row">
-        <div>
-          <h3>Smoked glass</h3>
-          <p>A softer glow for evening play.</p>
+    <div class="modal ticket" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <button class="close" type="button" data-close="settingsOverlay" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></button>
+      <div class="ticket-face">
+        <h2 id="settingsTitle">Settings</h2>
+        <div class="settings-row">
+          <div>
+            <h3>House lights down</h3>
+            <p>A dimmer stage for evening play.</p>
+          </div>
+          <button class="switch" type="button" id="darkSwitch" aria-pressed="false" aria-label="House lights down"><i></i></button>
         </div>
-        <button class="switch" type="button" id="darkSwitch" aria-pressed="false" aria-label="Smoked glass"><i></i></button>
+        <div class="settings-row">
+          <div>
+            <h3>High contrast</h3>
+            <p>Bolder markers and lights, easier to tell apart.</p>
+          </div>
+          <button class="switch" type="button" id="cbSwitch" aria-pressed="false" aria-label="High contrast"><i></i></button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <h3>Hard mode</h3>
+            <p>Revealed hints must be used in later guesses.</p>
+          </div>
+          <button class="switch" type="button" id="hardSwitch" aria-pressed="false" aria-label="Hard mode"><i></i></button>
+        </div>
+        <fieldset class="practice-settings">
+          <legend>Practice length</legend>
+          <p>Choose the length of your next unranked round. The official daily chooses its own length each day.</p>
+          <div class="length-options" role="group" aria-label="Practice name length">
+            <button type="button" data-practice-length="5" aria-pressed="true">5 letters</button>
+            <button type="button" data-practice-length="6" aria-pressed="false">6 letters</button>
+            <button type="button" data-practice-length="7" aria-pressed="false">7 letters</button>
+          </div>
+          <button class="brass-btn primary practice-start" type="button" id="startPracticeFromSettings">Start a new 5-letter round</button>
+        </fieldset>
       </div>
-      <div class="settings-row">
-        <div>
-          <h3>High contrast</h3>
-          <p>Easier to tell apart.</p>
-        </div>
-        <button class="switch" type="button" id="cbSwitch" aria-pressed="false" aria-label="High contrast"><i></i></button>
-      </div>
-      <div class="settings-row">
-        <div>
-          <h3>Hard mode</h3>
-          <p>Revealed hints must be used in later guesses.</p>
-        </div>
-        <button class="switch" type="button" id="hardSwitch" aria-pressed="false" aria-label="Hard mode"><i></i></button>
-      </div>
-      <fieldset class="practice-settings">
-        <legend>Practice length</legend>
-        <p>Choose the length of your next unranked round. The official daily chooses its own length each day.</p>
-        <div class="length-options" role="group" aria-label="Practice name length">
-          <button type="button" data-practice-length="5" aria-pressed="true">5 letters</button>
-          <button type="button" data-practice-length="6" aria-pressed="false">6 letters</button>
-          <button type="button" data-practice-length="7" aria-pressed="false">7 letters</button>
-        </div>
-        <button class="primary practice-start" type="button" id="startPracticeFromSettings">Start a new 5-letter round</button>
-      </fieldset>
     </div>
   </div>
 
