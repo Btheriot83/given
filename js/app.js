@@ -108,6 +108,16 @@ let mode = "daily";
 let dailyGame = null;
 let obscureGame = null;
 let lastFocus = null;
+let keyboardUser = false;
+let tabbing = false;
+window.addEventListener("keydown", (e) => {
+  keyboardUser = true;
+  if (e.key === "Tab") tabbing = true;
+}, true);
+window.addEventListener("pointerdown", () => {
+  keyboardUser = false;
+  tabbing = false;
+}, true);
 let finishFxTimer;
 let nameNotesPromise;
 let historyCursor;
@@ -285,6 +295,7 @@ function paintOutcome(animate = false) {
   const obscure = game.puzzle.kind === "obscure";
   const name = titleCase(game.puzzle.name);
   els.outcome.dataset.result = game.status;
+  els.outcome.classList.toggle("compact", game.guesses.length >= 5);
   els.outcomeDetail.textContent = won ? "Now playing:" : "The name was:";
   els.outcomeTitle.textContent = game.puzzle.name.toUpperCase();
   els.outcomeTitle.setAttribute("aria-label", won ? `Now playing: ${name}` : `The name was ${name}`);
@@ -385,6 +396,7 @@ function ringPoints(width, height, inset, radius, spacing) {
 function renderBoard() {
   const len = game.puzzle.length;
   els.board.style.setProperty("--len", String(len));
+  els.board.style.setProperty("--rows", String(game.status === "playing" ? MAX_GUESSES : Math.max(1, game.guesses.length)));
   const reuse = els.board.children.length === MAX_GUESSES && els.board.dataset.len === String(len);
   if (!reuse) {
     els.board.replaceChildren();
@@ -572,7 +584,7 @@ function openOverlay(id) {
   lastFocus = document.activeElement;
   const ov = document.getElementById(id);
   ov.classList.add("open");
-  ov.querySelector(".close")?.focus();
+  ov.querySelector(".close")?.focus({ focusVisible: keyboardUser });
   if (id === "helpOverlay") {
     settings.seenHelp = true;
     saveSettings();
@@ -593,6 +605,8 @@ function onKey(e) {
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "Enter") {
+    // Let Enter activate a focused control (menu buttons, links); on-screen keys still submit.
+    if (tabbing && document.activeElement?.matches?.("button:not(.key), a[href], input, summary")) return;
     e.preventDefault();
     handleKey("ENTER");
   } else if (e.key === "Backspace") {
@@ -748,6 +762,9 @@ function showFinishEffect(result) {
 }
 
 function toast(msg, ms = 2000) {
+  const anchor = [els.marqueePill, els.outcome].find((el) => !el.hidden);
+  const box = anchor?.getBoundingClientRect();
+  els.toast.parentElement.style.top = box && box.bottom > 0 ? `${Math.max(8, box.top + box.height / 2 - 22)}px` : "";
   els.toast.textContent = msg;
   els.toast.classList.add("show");
   clearTimeout(toastTimer);
@@ -888,7 +905,7 @@ function paintStats() {
   const items = [
     [stats.played, "Played"],
     [pct, "Win %"],
-    [stats.streak, "Current streak"],
+    [stats.streak, "Streak"],
     [stats.maxStreak, "Max streak"],
   ];
   els.statsRow.replaceChildren(
