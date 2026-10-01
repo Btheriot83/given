@@ -176,32 +176,20 @@ button:disabled { cursor: default; }
 .icon-btn svg { width: 19px; height: 19px; filter: drop-shadow(0 0 2.5px rgba(255, 211, 122, .6)); }
 .icon-btn:active { transform: scale(.92); }
 
-/* The neon sign: dark glass tube, blurred bloom, colored edge and hot core. */
+/* The neon sign: Snell Roundhand script with a hot core and an orange halo (img/named-neon.webp,
+   drawn by scripts/render-title.py the way the iOS app draws it), tilted like a hung sign. */
 .neon {
   position: relative;
-  margin: 40px 0 16px;
-  width: min(80vw, 316px);
-  aspect-ratio: 424 / 116;
+  margin: 8px 0 -22px;
+  width: min(84vw, 356px);
+  aspect-ratio: 1310 / 563;
   transform: rotate(-5deg);
   font-size: 0;
 }
-.neon svg, .neon-lit, .neon-flicker {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.neon use { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.neon-glass use { stroke: rgba(74, 28, 14, .8); stroke-width: 7.4; }
-.neon-bloom { filter: blur(11px); opacity: .8; will-change: opacity; }
-.neon-bloom use { stroke: #ff6a1a; stroke-width: 17; }
-.tube-halo { stroke: #ff8a2e; stroke-width: 10; opacity: .9; }
-.tube-edge { stroke: var(--neon); stroke-width: 6.8; }
-.tube-core { stroke: #ffe9c6; stroke-width: 2.7; }
+.neon-lit, .neon-flicker { position: absolute; inset: 0; width: 100%; height: 100%; }
+.neon-sign { display: block; width: 100%; height: 100%; animation: neon-breathe 4.6s ease-in-out infinite alternate; }
 .neon-lit { animation: neon-power 1.6s linear both; will-change: opacity; }
 .neon-flicker { animation: neon-flicker 11.5s 3.2s linear infinite; will-change: opacity; }
-.neon-bloom { animation: neon-breathe 4.6s ease-in-out infinite alternate; }
 
 /* ---------- Heading: marquee pill ---------- */
 .board-wrap {
@@ -1119,8 +1107,8 @@ button:disabled { cursor: default; }
   52.2%, 100% { opacity: 1; }
 }
 @keyframes neon-breathe {
-  from { opacity: .62; }
-  to { opacity: .86; }
+  from { opacity: .86; }
+  to { opacity: 1; }
 }
 @keyframes bulb-chase {
   0% { opacity: 1; }
@@ -1192,7 +1180,7 @@ button:disabled { cursor: default; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .curtain, .spotlight, .neon-lit, .neon-flicker, .neon-bloom,
+  .curtain, .spotlight, .neon-lit, .neon-flicker, .neon-sign,
   .bulbs-chase .ph0, .bulbs-chase .ph1, .bulbs-chase .ph2,
   .tile, .tile::after, .row, .key, .icon-btn, .brass-btn,
   .now-playing.drop, .result-stub.rise, .overlay.open .modal, .toast {
@@ -1219,7 +1207,7 @@ button:disabled { cursor: default; }
   .app { --kh: 46px; --chrome: calc(262px + 3 * var(--kh)); }
   .header { padding-top: 6px; }
   .icon-btn { width: 40px; height: 40px; }
-  .neon { width: min(62vw, 240px); margin: 34px 0 10px; }
+  .neon { width: min(66vw, 270px); margin: 2px 0 -18px; }
   .puzzle-meta { min-height: 30px; font-size: 18px; }
   .heading-links { min-height: 32px; }
   .keyboard { gap: 6px; }
@@ -1229,7 +1217,7 @@ button:disabled { cursor: default; }
   .icon-row { gap: 20px; }
   .icon-btn { width: 48px; height: 48px; }
   .valance { height: 124px; background-size: auto 160px; }
-  .neon { width: 360px; margin: 44px 0 18px; }
+  .neon { width: 400px; margin: 10px 0 -22px; }
   .app { --chrome: calc(362px + 3 * var(--kh)); }
 }
 @media (min-width: 1024px) {
@@ -1239,7 +1227,7 @@ button:disabled { cursor: default; }
   .marquee-pill { grid-column: 2; }
   .now-playing { grid-column: 1 / -1; justify-self: center; }
   .heading-links { grid-column: 3; justify-self: start; flex-wrap: nowrap; }
-  .neon { width: 380px; margin: 40px 0 14px; }
+  .neon { width: 420px; margin: 8px 0 -24px; }
   .keyboard { gap: 9px; }
   .kb-row { gap: 6px; }
   .key { font-size: calc(var(--kh) * .42); }
