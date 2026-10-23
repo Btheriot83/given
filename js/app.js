@@ -24,7 +24,7 @@ import { normalizeGroup } from "./leaderboard-core.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
-const SHARE_URL = "https://given-one.vercel.app/";
+const SHARE_URL = "https://namedgame.com/";
 
 const els = {
   board: document.getElementById("board"),
