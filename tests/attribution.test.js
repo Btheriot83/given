@@ -44,6 +44,11 @@ function fakeRedis() {
         h.set(args[0], String(next));
         return next;
       }
+      case "DEL": {
+        const existed = hashes.has(key) && hashes.get(key).size > 0;
+        hashes.delete(key);
+        return existed ? 1 : 0;
+      }
       case "EXPIRE":
         ttl.set(key, Number(args[0]));
         return 1;
@@ -183,6 +188,16 @@ equal(pickAppleFields({ attribution: false }), { attribution: "0" }, "organic in
   equal(summary.statusCode, 200, "summary 200");
   equal(summary.payload, { installs: 1, purchases: 1, resolved: 1, attributed: 1, campaigns: [{ campaignId: "1234567890", installs: 1, purchases: 1 }] }, "summary body");
   equal(summary.headers["cache-control"], "no-store", "summary not cached");
+
+  // Admin delete backs the record out of every counter.
+  const del = (headers, installId = INSTALL) => call(handler, { method: "DELETE", query: { installId }, headers });
+  equal((await del({})).statusCode, 401, "delete needs bearer");
+  equal((await del({ authorization: "Bearer admin-secret" }, "nope")).statusCode, 400, "delete validates installId");
+  equal((await del({ authorization: "Bearer admin-secret" })).statusCode, 204, "delete 204");
+  assert(!redis.hashes.get(KEY)?.size, "record removed");
+  equal((await del({ authorization: "Bearer admin-secret" })).statusCode, 404, "second delete 404");
+  const cleared = await call(handler, { method: "GET", query: { summary: "1" }, headers: { authorization: "Bearer admin-secret" } });
+  equal(cleared.payload, { installs: 0, purchases: 0, resolved: 0, attributed: 0, campaigns: [] }, "counters backed out");
 }
 
 // --- fake token: Apple says 400, still 204 -----------------------------------

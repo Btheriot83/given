@@ -8,6 +8,9 @@
 // GET /api/attribution?summary=1   (Authorization: Bearer $ATTRIBUTION_ADMIN_TOKEN)
 //   -> 200 { installs, purchases, resolved, attributed, campaigns: [...] }
 //
+// DELETE /api/attribution?installId=<uuid>   (same bearer)
+//   -> 204 after removing one record and backing out its counters; 404 if absent.
+//
 // Storage: Upstash Redis hash given:attr:<installId>, kept 400 days.
 // Counters: given:attr:stats (installs, purchases, resolved, attributed) and
 // given:attr:campaigns (<campaignId>:installs, <campaignId>:purchases).
@@ -258,24 +261,55 @@ export function createHandler({
       purchases: num("purchases"),
       resolved: num("resolved"),
       attributed: num("attributed"),
-      campaigns: Object.values(byCampaign).sort((a, b) => b.installs - a.installs || b.purchases - a.purchases),
+      campaigns: Object.values(byCampaign).filter((c) => c.installs || c.purchases).sort((a, b) => b.installs - a.installs || b.purchases - a.purchases),
     };
+  }
+
+  // Admin deletion (privacy requests, test cleanup): removes the record and
+  // backs out whatever it contributed to the counters. Returns false if absent.
+  async function remove(pipeline, installId) {
+    const key = recordKey(installId);
+    const [raw] = await pipeline([["HGETALL", key]]);
+    const record = hashToObject(raw);
+    if (!Object.keys(record).length) return false;
+    const [deleted] = await pipeline([["DEL", key]]);
+    if (Number(deleted) !== 1) return false; // a parallel delete won
+    const commands = [];
+    if (record.installCounted === "1") commands.push(["HINCRBY", STATS_KEY, "installs", -1]);
+    if (record.purchased === "1") commands.push(["HINCRBY", STATS_KEY, "purchases", -1]);
+    if (record.appleStatus === "ok") commands.push(["HINCRBY", STATS_KEY, "resolved", -1]);
+    if (record.appleStatus === "ok" && record.attribution === "1") {
+      commands.push(["HINCRBY", STATS_KEY, "attributed", -1]);
+      if (record.campaignId) commands.push(["HINCRBY", CAMPAIGNS_KEY, `${record.campaignId}:installs`, -1]);
+    }
+    if (record.campaignPurchaseCounted === "1" && record.campaignId) {
+      commands.push(["HINCRBY", CAMPAIGNS_KEY, `${record.campaignId}:purchases`, -1]);
+    }
+    if (commands.length) await pipeline(commands);
+    return true;
   }
 
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     const fail = (status, error) => res.status(status).json({ error });
+    const isAdminCall = (req.method === "GET" && req.query?.summary === "1") || req.method === "DELETE";
 
-    if (req.method === "GET" && req.query?.summary === "1") {
+    if (isAdminCall) {
       const secret = env.ATTRIBUTION_ADMIN_TOKEN;
-      if (!secret) return fail(503, "Summary is not configured");
+      if (!secret) return fail(503, "Admin access is not configured");
       const header = String(req.headers?.authorization || "");
       const given = header.startsWith("Bearer ") ? header.slice(7) : "";
       if (!given || !sameSecret(given, secret)) return fail(401, "Unauthorized");
       const pipeline = storage();
       if (!pipeline) return fail(503, "Storage is not connected");
+      const installId = req.query?.installId;
+      if (req.method === "DELETE" && (typeof installId !== "string" || !UUID_V4.test(installId))) {
+        return fail(400, "Invalid request");
+      }
       try {
-        return res.status(200).json(await summary(pipeline));
+        if (req.method === "GET") return res.status(200).json(await summary(pipeline));
+        const removed = await remove(pipeline, installId.toLowerCase());
+        return removed ? res.status(204).end() : fail(404, "Not found");
       } catch {
         return fail(503, "Storage unavailable");
       }
