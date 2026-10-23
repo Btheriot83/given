@@ -45,7 +45,7 @@ NAMED 266 3/6
 🟩⬛🟨⬛⬛
 🟩🟩🟩🟩🟩
 
-https://given-one.vercel.app/
+https://namedgame.com
 ```
 
 The trophy button opens a friends board. Create an eight-character code or join one from a friend's link, choose a nickname, and finish the official daily puzzle. Scores rank by fewest guesses; losses show `X/6`. Obscure and practice rounds do not count. Codes are unlisted, not a privacy or identity guarantee. There is no login, so this is for friendly competition, not a cheat-proof public contest. A device can post once per group per day; entries expire after 90 days. The score endpoint replays submitted guesses against the official daily puzzle and never returns the answer.

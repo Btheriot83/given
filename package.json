@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node tests/engine.test.js",
+    "test": "node tests/engine.test.js && node tests/attribution.test.js",
     "build": "node tests/engine.test.js",
     "start": "python3 -m http.server 4173 --bind 127.0.0.1"
   }

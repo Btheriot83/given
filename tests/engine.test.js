@@ -227,8 +227,8 @@ const shared = shareGrid(numbered);
 assert(shared.startsWith("NAMED "), "share title");
 assert(shared.includes("1/6"), "share score");
 assert(!shared.includes("B · H"), "share is grid only");
-const linkedShare = shareGrid(numbered, { url: "https://given-one.vercel.app/" });
-assert(linkedShare.endsWith("https://given-one.vercel.app/"), "share includes play link");
+const linkedShare = shareGrid(numbered, { url: "https://namedgame.com" });
+assert(linkedShare.endsWith("https://namedgame.com"), "share includes play link");
 assert(!linkedShare.includes("BETH"), "share does not spoil the answer");
 
 assert(nameNotes.source === "https://www.ssa.gov/oact/babynames/limits.html", "name facts have primary source");

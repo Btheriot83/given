@@ -6,3 +6,4 @@ gauntlet.md
 artifacts
 .env*.local
 .dream-loop/
+.secrets/
