@@ -129,8 +129,8 @@ async function call(handler, { method = "POST", body, query = {}, headers = {} }
   return res;
 }
 
-const NAMES = { ...names, familiarAnswers: answerPools.familiar, lengthWeights: answerPools.lengthWeights, dailyFive: answerPools.dailyFive };
-const answerFor = (dateKey) => pickDailyPuzzle(NAMES.answers, dateKey, NAMES.familiarAnswers, NAMES.lengthWeights, NAMES.dailyFive).name;
+const NAMES = { ...names, familiarAnswers: answerPools.familiar, lengthWeights: answerPools.lengthWeights, dailyPools: answerPools };
+const answerFor = (dateKey) => pickDailyPuzzle(NAMES.answers, dateKey, NAMES.familiarAnswers, NAMES.lengthWeights, NAMES.dailyPools).name;
 function wrongGuesses(dateKey, count) {
   const answer = answerFor(dateKey);
   return names.guesses.filter((g) => g.length === answer.length && g !== answer).slice(0, count);
@@ -205,7 +205,7 @@ test("past numbers back to HISTORY_START_DATE are accepted, older and future one
   equal(future.statusCode, 400, "future");
 });
 
-test("the five-letter daily pool is used from DAILY_FIVE_START_DATE", async () => {
+test("the short daily pools are used from DAILY_SHORT_START_DATE", async () => {
   const { handler } = setup({ now: Date.parse("2026-11-02T10:00:00Z") });
   const day = "2026-11-02";
   assert(answerFor(day).length === 5, "five letters");

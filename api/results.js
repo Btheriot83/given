@@ -46,7 +46,7 @@ const NAMES = {
   guessSet: new Set(names.guesses),
   familiarAnswers: answerPools.familiar,
   lengthWeights: answerPools.lengthWeights,
-  dailyFive: answerPools.dailyFive,
+  dailyPools: answerPools,
 };
 
 export class BadRequest extends Error {}

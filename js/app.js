@@ -274,7 +274,7 @@ function toggleSwitch(el, on) {
 }
 
 function bootDaily() {
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights, answerPools);
   const saved = loadDailySave(puzzle.dateKey);
   mode = "daily";
   if (saved) {
@@ -317,7 +317,7 @@ function harvestOldDaily() {
 }
 
 function pastPuzzle(dateKey) {
-  return pickDailyPuzzle(names.answers, dateKey, answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
+  return pickDailyPuzzle(names.answers, dateKey, answerPools.familiar, answerPools.lengthWeights, answerPools);
 }
 
 /** Opens Daily #N for a past date: its saved game, or a fresh one if a free slot (or Named+) allows. */
@@ -1508,7 +1508,7 @@ function returnToDaily() {
   if (mode === "obscure") obscureGame = game;
   if (mode !== "daily") moment = null;
   mode = "daily";
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights, answerPools);
   game = dailyGame && dailyGame.puzzle?.dateKey === puzzle.dateKey
     ? dailyGame
     : loadDailySave(puzzle.dateKey) || createGame(puzzle);

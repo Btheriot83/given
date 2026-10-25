@@ -7,8 +7,14 @@ export const PLAY_LENGTH = 5;
 export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
 export const FAMILIAR_START_DATE = "2026-09-27";
 export const HISTORY_START_DATE = "2026-09-26";
-/** From this date the official daily is always five letters, from the `dailyFive` pool. */
-export const DAILY_FIVE_START_DATE = "2026-11-01";
+/** From this date the official daily is mostly five or six letters, with a seven-letter name
+ *  about one day in seven (they are the hard ones): a seeded draw per date over the `dailyFive`,
+ *  `dailySix` and `dailySeven` pools. */
+export const DAILY_SHORT_START_DATE = "2026-11-01";
+/** The earlier name for the same date. */
+export const DAILY_FIVE_START_DATE = DAILY_SHORT_START_DATE;
+/** Chance of each length from DAILY_SHORT_START_DATE (cumulative cut points 0.45 and 0.85). */
+export const DAILY_LENGTH_MIX = Object.freeze({ 5: 0.45, 6: 0.40, 7: 0.15 });
 
 export function historyEndDate(today, daily) {
   return daily?.puzzle?.dateKey === today && ["won", "lost"].includes(daily.status)
@@ -162,12 +168,16 @@ export function dailyOrder(answers, seed = "GIVEN-DAILY-v2") {
   return arr;
 }
 
-export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights, dailyFive) {
-  if (dateKey >= DAILY_FIVE_START_DATE) {
-    if (!Array.isArray(dailyFive) || !dailyFive.length) throw new Error("No five-letter daily answers configured");
-    const order = dailyOrder(dailyFive, "NAMED-DAILY5-v1");
+/** `dailyPools` is the answer-pools object: `{ dailyFive, dailySix, dailySeven }`. */
+export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights, dailyPools) {
+  if (dateKey >= DAILY_SHORT_START_DATE) {
+    const pools = { 5: dailyPools?.dailyFive, 6: dailyPools?.dailySix, 7: dailyPools?.dailySeven };
+    if (![5, 6, 7].every((n) => pools[n]?.length)) throw new Error("No five-, six- and seven-letter daily answers configured");
+    const draw = mulberry32(hashString(`NAMED-DAILY567-LEN-v2:${dateKey}`))();
+    const length = draw < DAILY_LENGTH_MIX[5] ? 5 : draw < DAILY_LENGTH_MIX[5] + DAILY_LENGTH_MIX[6] ? 6 : 7;
+    const order = dailyOrder(pools[length], `NAMED-DAILY567-v1:${length}`);
     const num = puzzleNumber(dateKey);
-    const name = order[(num - puzzleNumber(DAILY_FIVE_START_DATE)) % order.length];
+    const name = order[(num - puzzleNumber(DAILY_SHORT_START_DATE)) % order.length];
     return { name, length: name.length, dateKey, index: num };
   }
   const familiar = dateKey >= FAMILIAR_START_DATE;

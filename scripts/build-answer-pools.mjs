@@ -17,19 +17,23 @@ const obscure = names.answers.filter((name) => {
   return name.length === 5 && total >= 5_000 && total < 20_000 && !familiarSet.has(name);
 });
 
-// From DAILY_FIVE_START_DATE the official daily is always five letters (like Wordle). Its pool
-// is every familiar five-letter name plus the next most common ones (40,000+ U.S. births), so
-// it runs close to a year before repeating. Never overlaps the obscure pool (under 20,000).
-const dailyFive = names.answers.filter((name) => {
+// From DAILY_SHORT_START_DATE the official daily is mostly five or six letters, with a
+// seven-letter name about one day a week (they are the hard ones). Each
+// pool is every familiar name of that length plus the next most common ones (40,000+ U.S.
+// births). Five-letter names never overlap the obscure pool (under 20,000).
+const everyday = (length) => names.answers.filter((name) => {
   const fact = notes.counts[name];
-  return fact && name.length === 5 && (familiarSet.has(name) || fact.total >= 40_000);
+  return fact && name.length === length && (familiarSet.has(name) || fact.total >= 40_000);
 });
+const dailyFive = everyday(5);
+const dailySix = everyday(6);
+const dailySeven = everyday(7);
 
 // Weight lengths by recorded births, then give names within a length equal turns.
 const lengthWeights = Object.fromEntries([4, 5, 6, 7].map((length) => [
   length, familiar.filter((name) => name.length === length)
     .reduce((sum, name) => sum + notes.counts[name].total, 0),
 ]));
-const output = { familiar, obscure, dailyFive, lengthWeights };
+const output = { familiar, obscure, dailyFive, dailySix, dailySeven, lengthWeights };
 writeFileSync(new URL("../data/answer-pools.json", import.meta.url), `${JSON.stringify(output)}\n`);
-console.log(`Familiar: ${familiar.length}; daily five: ${dailyFive.length}; obscure: ${obscure.length}`);
+console.log(`Familiar: ${familiar.length}; daily five: ${dailyFive.length}; daily six: ${dailySix.length}; daily seven: ${dailySeven.length}; obscure: ${obscure.length}`);

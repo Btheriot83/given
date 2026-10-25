@@ -38,7 +38,7 @@ export const LOSS_SCORE = MAX_GUESSES + 1;
  */
 export function replayDaily(guesses, dateKey, names) {
   if (!Array.isArray(guesses) || guesses.length < 1 || guesses.length > MAX_GUESSES) throw new Error("Invalid guesses");
-  const puzzle = pickDailyPuzzle(names.answers, dateKey, names.familiarAnswers, names.lengthWeights, names.dailyFive);
+  const puzzle = pickDailyPuzzle(names.answers, dateKey, names.familiarAnswers, names.lengthWeights, names.dailyPools);
   const guessSet = names.guessSet || new Set(names.guesses);
   let game = createGame(puzzle);
   for (const guess of guesses) {

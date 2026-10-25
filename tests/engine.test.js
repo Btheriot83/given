@@ -171,7 +171,7 @@ assert(answerPools.familiar.every((name) => {
 equal(FAMILIAR_START_DATE, "2026-09-27", "familiar schedule preserves September 26's existing puzzle");
 equal(pickDailyPuzzle(names.answers, "2026-09-25", answerPools.familiar).name, "AUDIE", "today's existing official puzzle stays unchanged");
 equal(pickDailyPuzzle(names.answers, "2026-09-26", answerPools.familiar).name, "WENDY", "tomorrow's existing official puzzle stays unchanged");
-const daily = (date) => pickDailyPuzzle(names.answers, date, answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
+const daily = (date) => pickDailyPuzzle(names.answers, date, answerPools.familiar, answerPools.lengthWeights, answerPools);
 assert(answerPools.familiar.includes(daily(FAMILIAR_START_DATE).name), "familiar schedule starts September 27");
 assert(answerPools.familiar.includes("BRANDON"), "Brandon is eligible for the official daily");
 const lengthCounts = { 4: 0, 5: 0, 6: 0, 7: 0 };
@@ -282,22 +282,26 @@ equal(rankEntries([
 
 console.log("engine.test.js: all passed");
 
-// From 2026-11-01 the official daily is always five letters, from the dailyFive pool.
+// From 2026-11-01 the daily is mostly five or six letters, seven about one day a week.
 {
   const { readFileSync } = await import("node:fs");
-  const { pickDailyPuzzle: pick, DAILY_FIVE_START_DATE: start } = await import("../js/engine.js");
+  const { pickDailyPuzzle: pick, DAILY_SHORT_START_DATE: start } = await import("../js/engine.js");
   const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
   const pools = JSON.parse(readFileSync(new URL("../data/answer-pools.json", import.meta.url)));
-  const day = (key) => pick(names.answers, key, pools.familiar, pools.lengthWeights, pools.dailyFive);
-  if (start !== "2026-11-01") throw new Error("five-letter daily start moved");
+  const day = (key) => pick(names.answers, key, pools.familiar, pools.lengthWeights, pools);
+  if (start !== "2026-11-01") throw new Error("short daily start moved");
   if (day("2026-10-24").name !== "PAULINE" || day("2026-10-25").name !== "JEAN") throw new Error("days before the switch must not change");
-  const seen = new Set();
-  for (let i = 0; i < pools.dailyFive.length; i++) {
+  const counts = { 5: 0, 6: 0, 7: 0 };
+  const days = 730;
+  for (let i = 0; i < days; i++) {
     const d = new Date(Date.UTC(2026, 10, 1 + i)).toISOString().slice(0, 10);
     const p = day(d);
-    if (p.length !== 5) throw new Error(`${d} is ${p.length} letters`);
-    seen.add(p.name);
+    if (![5, 6, 7].includes(p.length)) throw new Error(`${d} is ${p.length} letters`);
+    counts[p.length]++;
   }
-  if (seen.size !== pools.dailyFive.length) throw new Error("five-letter daily repeats before the pool is used up");
-  console.log("five-letter daily: ok", [...Array(5)].map((_, i) => day(`2026-11-0${1 + i}`).name).join(" "));
+  const share = (n) => counts[n] / days;
+  if (Math.abs(share(5) - 0.45) > 0.05 || Math.abs(share(6) - 0.40) > 0.05 || Math.abs(share(7) - 0.15) > 0.04) {
+    throw new Error(`length mix off: ${JSON.stringify(counts)}`);
+  }
+  console.log("short daily: ok", JSON.stringify(counts), [...Array(7)].map((_, i) => day(`2026-11-0${1 + i}`).name).join(" "));
 }
