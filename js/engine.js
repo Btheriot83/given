@@ -8,7 +8,7 @@ export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
 export const FAMILIAR_START_DATE = "2026-09-27";
 export const HISTORY_START_DATE = "2026-09-26";
 /** From this date the official daily is always five letters, from the `dailyFive` pool. */
-export const DAILY_FIVE_START_DATE = "2026-10-25";
+export const DAILY_FIVE_START_DATE = "2026-11-01";
 
 export function historyEndDate(today, daily) {
   return daily?.puzzle?.dateKey === today && ["won", "lost"].includes(daily.status)

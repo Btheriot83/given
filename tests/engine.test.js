@@ -177,7 +177,7 @@ assert(answerPools.familiar.includes("BRANDON"), "Brandon is eligible for the of
 const lengthCounts = { 4: 0, 5: 0, 6: 0, 7: 0 };
 const replayDates = {};
 // Mixed lengths ran from the familiar start until the five-letter daily (tested at the end).
-const mixedDays = puzzleNumber("2026-10-25") - puzzleNumber(FAMILIAR_START_DATE);
+const mixedDays = puzzleNumber("2026-11-01") - puzzleNumber(FAMILIAR_START_DATE);
 for (let offset = 0; offset < mixedDays; offset++) {
   const date = dateKeyFromPuzzleNumber(puzzleNumber(FAMILIAR_START_DATE) + offset);
   const puzzle = daily(date);
@@ -282,22 +282,22 @@ equal(rankEntries([
 
 console.log("engine.test.js: all passed");
 
-// From 2026-10-25 the official daily is always five letters, from the dailyFive pool.
+// From 2026-11-01 the official daily is always five letters, from the dailyFive pool.
 {
   const { readFileSync } = await import("node:fs");
   const { pickDailyPuzzle: pick, DAILY_FIVE_START_DATE: start } = await import("../js/engine.js");
   const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
   const pools = JSON.parse(readFileSync(new URL("../data/answer-pools.json", import.meta.url)));
   const day = (key) => pick(names.answers, key, pools.familiar, pools.lengthWeights, pools.dailyFive);
-  if (start !== "2026-10-25") throw new Error("five-letter daily start moved");
-  if (day("2026-10-24").name !== "PAULINE") throw new Error("days before the switch must not change");
+  if (start !== "2026-11-01") throw new Error("five-letter daily start moved");
+  if (day("2026-10-24").name !== "PAULINE" || day("2026-10-25").name !== "JEAN") throw new Error("days before the switch must not change");
   const seen = new Set();
   for (let i = 0; i < pools.dailyFive.length; i++) {
-    const d = new Date(Date.UTC(2026, 9, 25 + i)).toISOString().slice(0, 10);
+    const d = new Date(Date.UTC(2026, 10, 1 + i)).toISOString().slice(0, 10);
     const p = day(d);
     if (p.length !== 5) throw new Error(`${d} is ${p.length} letters`);
     seen.add(p.name);
   }
   if (seen.size !== pools.dailyFive.length) throw new Error("five-letter daily repeats before the pool is used up");
-  console.log("five-letter daily: ok", [...Array(5)].map((_, i) => day(`2026-10-${25 + i}`).name).join(" "));
+  console.log("five-letter daily: ok", [...Array(5)].map((_, i) => day(`2026-11-0${1 + i}`).name).join(" "));
 }
