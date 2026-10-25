@@ -18,6 +18,7 @@
 @property --lit { syntax: "<number>"; inherits: true; initial-value: 1; }
 @property --sweep { syntax: "<angle>"; inherits: false; initial-value: 360deg; }
 @property --spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --tile { syntax: "<length>"; inherits: true; initial-value: 52px; }
 
 :root {
   --curtain-hi: #7a0e14;
@@ -180,6 +181,9 @@ button:disabled { cursor: default; }
 }
 .icon-btn svg { width: 19px; height: 19px; filter: drop-shadow(0 0 2.5px rgba(255, 211, 122, .6)); }
 .icon-btn:active { transform: scale(.92); }
+.icon-btn .sound-off, .icon-btn.muted .sound-on { display: none; }
+.icon-btn.muted .sound-off { display: block; }
+.icon-btn.muted { color: rgba(231, 192, 106, .7); }
 
 /* The neon sign: Snell Roundhand script with a hot core and an orange halo (img/named-neon.webp,
    drawn by scripts/render-title.py the way the iOS app draws it), tilted like a hung sign. */
@@ -256,11 +260,28 @@ button:disabled { cursor: default; }
   pointer-events: none;
 }
 .pill-bulbs svg, .banner-bulbs svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.bulb-off circle { fill: #5a4630; stroke: #7a5c36; stroke-width: .8; }
-.bulb-on { fill: url(#bulbGlow); }
-.bulbs-chase .ph0, .bulbs-chase .ph1, .bulbs-chase .ph2 { animation: bulb-chase 1.05s steps(1, end) infinite; }
-.bulbs-chase .ph1 { animation-delay: -.35s; }
-.bulbs-chase .ph2 { animation-delay: -.7s; }
+/* Warm gold bulbs (never grey: the chase dims them, it never switches them off) alternate with
+   cool "white diamond" bulbs whose four-point glints twinkle a few at a time. */
+.bulb-gold circle { fill: #f1b64a; stroke: #ffe3a2; stroke-width: .6; }
+.bulbs-chase .ph0, .bulbs-chase .ph1, .bulbs-chase .ph2 { animation: bulb-chase 2.1s steps(1, end) infinite; }
+.bulbs-chase .ph1 { animation-delay: -.7s; }
+.bulbs-chase .ph2 { animation-delay: -1.4s; }
+.tw { opacity: 0; fill: #fffdf5; animation: twinkle 3.4s ease-in-out infinite; }
+.tw path { filter: drop-shadow(0 0 1.5px rgba(207, 224, 255, .95)); }
+.tw0 { animation-duration: 3.1s; animation-delay: -.3s; }
+.tw1 { animation-duration: 3.7s; animation-delay: -1.9s; }
+.tw2 { animation-duration: 4.3s; animation-delay: -3.1s; }
+.tw3 { animation-duration: 2.9s; animation-delay: -1.2s; }
+.tw4 { animation-duration: 5.1s; animation-delay: -4.4s; }
+/* The win: the chase races and the diamonds sparkle. */
+.celebrating .bulbs-chase .ph0, .celebrating .bulbs-chase .ph1, .celebrating .bulbs-chase .ph2 { animation-duration: .66s; }
+.celebrating .bulbs-chase .ph1 { animation-delay: -.22s; }
+.celebrating .bulbs-chase .ph2 { animation-delay: -.44s; }
+.celebrating .tw0 { animation-duration: 1.1s; }
+.celebrating .tw1 { animation-duration: 1.3s; }
+.celebrating .tw2 { animation-duration: .9s; }
+.celebrating .tw3 { animation-duration: 1.5s; }
+.celebrating .tw4 { animation-duration: 1.2s; }
 
 .heading-links {
   display: flex;
@@ -537,8 +558,10 @@ button:disabled { cursor: default; }
 
 /* ---------- Finished: the ticket stub replaces the keyboard ---------- */
 .app.is-finished .keyboard,
-.app.is-finished .heading-links,
+.app.is-over .heading-links,
 .row.spare { display: none; }
+.app.collapsing .keyboard { opacity: 0; transform: translateY(14px); transition: opacity .2s ease, transform .2s ease; }
+.board { transition: --tile .45s cubic-bezier(.2, .9, .3, 1); }
 .app.is-finished .board {
   --tile: min(52px,
     calc((100vw - 28px - (var(--len, 5) - 1) * var(--gap)) / var(--len, 5)),
@@ -595,10 +618,68 @@ button:disabled { cursor: default; }
   color: var(--ink-soft);
 }
 .stub-fact {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
   margin: 2px 0 0;
-  font-size: 15.5px;
-  line-height: 1.38;
 }
+.flourish { display: flex; align-items: center; gap: 8px; width: min(180px, 70%); margin: 4px 0 1px; }
+.flourish i { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(201, 149, 59, 0), var(--brass)); }
+.flourish i:last-child { transform: scaleX(-1); }
+.flourish b { width: 6px; height: 6px; background: var(--brass); transform: rotate(45deg); }
+.fact-headline {
+  font-family: var(--slab);
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 1.28;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.fact-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+.fact-chips:empty { display: none; }
+/* A short fact printed on a tiny admission stub: cream stock, brass edge, a notch each end. */
+.fact-chips li {
+  padding: 5px 11px 2px;
+  border: 1px solid var(--brass);
+  border-radius: 2px;
+  background: var(--cream-hi);
+  outline: .75px dashed rgba(201, 149, 59, .4);
+  outline-offset: -3.5px;
+  color: var(--ink-soft);
+  font-family: var(--marquee);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: .07em;
+  line-height: 1.25;
+  text-transform: uppercase;
+  -webkit-mask: radial-gradient(circle 4.5px at 0 50%, #0000 96%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 4.5px at 100% 50%, #0000 96%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 4.5px at 0 50%, #0000 96%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 4.5px at 100% 50%, #0000 96%, #000) right / 51% 100% no-repeat;
+}
+.story-link {
+  margin-top: 6px;
+  min-height: 40px;
+  padding: 0 8px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 16.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.story-link::after { content: " ↓"; text-decoration: none; display: inline-block; margin-left: 4px; }
+.story-link[hidden] { display: none; }
 .stub-source {
   font-size: 12.5px;
   color: var(--ink-soft);
@@ -636,6 +717,82 @@ button:disabled { cursor: default; }
 .stub-links [hidden] { display: none; }
 .next-name-compact { display: none; }
 
+/* ---------- The friends-board prompt on the stub ---------- */
+.prompt-ticket[hidden], .story-ticket[hidden], .prompt-join[hidden], .prompt-done[hidden], .prompt-code[hidden], .prompt-error[hidden] { display: none; }
+.prompt-ticket .ticket-face, .story-ticket .ticket-face { padding: 20px 26px 20px; }
+.prompt-ticket .friends-form { margin: 0; gap: 7px; }
+.prompt-ticket h3 {
+  margin: 0;
+  font-family: var(--slab);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.prompt-lead { margin: 0 0 4px; font-size: 15.5px; line-height: 1.4; color: var(--ink-soft); }
+.prompt-code { display: grid; gap: 7px; }
+.prompt-error { margin: 0; color: #8e1a16; font-size: 15px; font-weight: 600; }
+.prompt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.prompt-actions .brass-btn { min-height: 46px; padding: 3px 8px 0; font-size: 16px; white-space: normal; line-height: 1.1; }
+.brass-btn.prompt-alt {
+  background: linear-gradient(180deg, #3a2215, #1e0f08);
+  border-color: var(--brass);
+  color: var(--brass-hi);
+  box-shadow: inset 0 1px 0 rgba(231, 192, 106, .25), 0 4px 8px rgba(0, 0, 0, .35);
+}
+.prompt-done { display: grid; gap: 4px; }
+.prompt-kicker, .story-label {
+  margin: 0;
+  font-family: var(--marquee);
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.prompt-status { margin: 0; font-size: 16px; line-height: 1.42; }
+
+/* ---------- The Name Story ---------- */
+.story-ticket .ticket-face { display: flex; flex-direction: column; gap: 13px; text-align: left; }
+.story-title {
+  margin: 0;
+  font-family: var(--marquee);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink);
+  outline: none;
+}
+.story-body { display: flex; flex-direction: column; gap: 13px; }
+.story-body p { margin: 0; font-size: 16.5px; line-height: 1.45; }
+.story-part { display: grid; gap: 4px; }
+.story-ruled { padding-top: 13px; border-top: 1px solid rgba(201, 149, 59, .6); gap: 8px; }
+.story-meaning, .story-record { font-weight: 600; }
+.story-feeling { font-style: italic; color: var(--ink-soft); }
+.story-hook.record { font-family: var(--slab); font-size: 19px; line-height: 1.3; }
+.culture { display: grid; gap: 3px; }
+.culture-kind {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--amber-ink);
+}
+.culture-title { font-weight: 600; font-size: 16.5px; line-height: 1.3; }
+.story-hook .culture-title { font-family: var(--slab); font-weight: 400; font-size: 21px; line-height: 1.25; }
+.culture-fact { color: var(--ink-soft); }
+.culture .culture-fact { font-size: 15.5px; }
+.story-hook .culture-fact { font-size: 16.5px; }
+.namesakes { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.namesakes li { display: grid; gap: 1px; }
+.namesakes b { font-size: 16.5px; }
+.namesakes span { color: var(--ink-soft); font-size: 15.5px; line-height: 1.4; }
+.story-sources { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-soft); }
+
 /* ---------- Brass ticket buttons ---------- */
 .brass-btn {
   min-height: 50px;
@@ -658,29 +815,39 @@ button:disabled { cursor: default; }
 .wide-btn { width: 100%; min-height: 58px; font-size: 21px; box-shadow: inset 0 1.5px 0 rgba(255, 240, 196, .7), 0 0 16px rgba(255, 211, 122, .45); }
 .small-btn { min-height: 44px; font-size: 15px; padding: 2px 14px 0; }
 
-/* ---------- Win light show ---------- */
+/* ---------- Win light show ----------
+   Two follow-spots behind the valance (js: spotlights, after the app's SpotlightShow): a soft cone
+   of scattered light with a brighter core, aimed from each top corner. A loss gets one soft spot. */
 .finish-fx {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
-  z-index: 2;
-}
-.finish-fx i {
-  position: absolute;
-  bottom: -6vh;
-  width: 150vh;
-  height: 125vh;
-  margin-left: -75vh;
-  transform-origin: 50% 100%;
-  background: conic-gradient(from -12deg at 50% 100%, transparent 0deg, rgba(255, 211, 122, .1) 6deg, rgba(255, 228, 176, .17) 12deg, rgba(255, 211, 122, .1) 18deg, transparent 24deg, transparent);
-  -webkit-mask: linear-gradient(0deg, #000 8%, rgba(0, 0, 0, .5) 50%, transparent 92%);
-  mask: linear-gradient(0deg, #000 8%, rgba(0, 0, 0, .5) 50%, transparent 92%);
-  mix-blend-mode: screen;
   opacity: 0;
+  mix-blend-mode: screen;
 }
-.finish-fx.won i:nth-child(1) { left: -8%; animation: beam-left 3.6s ease-in-out both; }
-.finish-fx.won i:nth-child(2) { left: 108%; animation: beam-right 3.6s ease-in-out both; }
+@supports (mix-blend-mode: plus-lighter) { .finish-fx { mix-blend-mode: plus-lighter; } }
+.finish-fx .beam { position: absolute; transform-origin: 50% 0; will-change: transform; }
+.beam .cone, .beam .core { position: absolute; inset: 0; }
+.beam .cone { filter: blur(7px); }
+.beam .core { left: 30%; right: 30%; filter: blur(3px); }
+.beam .cone::before, .beam .core::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(47% 0, 53% 0, 100% 95%, 84% 98.6%, 50% 100%, 16% 98.6%, 0 95%);
+}
+.beam .cone::before { background: linear-gradient(180deg, rgba(255, 226, 160, .6), rgba(255, 199, 112, .3) 55%, rgba(255, 199, 112, 0)); }
+.beam .core::before { background: linear-gradient(180deg, rgba(255, 243, 214, .55), rgba(255, 243, 214, .18) 50%, rgba(255, 243, 214, 0) 85%); }
+.finish-fx.lost .cone::before { background: linear-gradient(180deg, rgba(255, 214, 170, .42), rgba(255, 190, 140, .16) 60%, rgba(255, 190, 140, 0)); }
+.finish-fx.lost .core { display: none; }
+/* The marquee lights up: the neon flares and the house spot brightens. */
+.celebrating .neon-sign { animation: neon-flare .7s ease-in-out 6 alternate; }
+.celebrating .spotlight { opacity: 1; filter: brightness(1.5) saturate(1.1); transition: filter .4s ease, opacity .4s ease; }
+.spotlight { transition: filter 1.2s ease, opacity 1.2s ease; }
+/* A loss: the banner's bulbs come up one phase at a time instead of racing. */
+.now-playing[data-result="lost"].drop .ph0 { animation: warm-up .9s .15s both; }
+.now-playing[data-result="lost"].drop .ph1 { animation: warm-up .9s .4s both; }
+.now-playing[data-result="lost"].drop .ph2 { animation: warm-up .9s .65s both; }
 
 /* ---------- Toast ---------- */
 .toast-wrap {
@@ -1123,8 +1290,21 @@ button:disabled { cursor: default; }
 }
 @keyframes bulb-chase {
   0% { opacity: 1; }
-  33.3% { opacity: .32; }
+  33.3% { opacity: .42; }
   66.6% { opacity: 1; }
+}
+@keyframes twinkle {
+  0%, 78%, 100% { opacity: 0; }
+  86% { opacity: 1; }
+  92% { opacity: .15; }
+}
+@keyframes warm-up {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes neon-flare {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.16) saturate(1.25); }
 }
 @keyframes pop {
   from { transform: scale(1.12); }
@@ -1192,7 +1372,8 @@ button:disabled { cursor: default; }
 
 @media (prefers-reduced-motion: reduce) {
   .curtain, .spotlight, .neon-lit, .neon-flicker, .neon-sign,
-  .bulbs-chase .ph0, .bulbs-chase .ph1, .bulbs-chase .ph2,
+  .bulbs-chase .ph0, .bulbs-chase .ph1, .bulbs-chase .ph2, .tw,
+  .now-playing .ph0, .now-playing .ph1, .now-playing .ph2, .celebrating .neon-sign,
   .tile, .tile::after, .row, .key, .icon-btn, .brass-btn,
   .now-playing.drop, .result-stub.rise, .overlay.open .modal, .toast {
     animation: none !important;
@@ -1200,7 +1381,7 @@ button:disabled { cursor: default; }
   }
   .tile.landed::after, .row.chasing .tile::after { -webkit-mask: none; mask: none; }
   .tile { transition: opacity .25s ease !important; }
-  .finish-fx { display: none; }
+  .board { transition: none; }
 }
 
 /* ---------- Responsive ---------- */

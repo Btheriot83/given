@@ -35,6 +35,7 @@
     <div class="curtain"></div>
     <div class="spotlight"></div>
     <div class="vignette"></div>
+    <div class="finish-fx" id="finishFx"></div>
     <div class="valance"></div>
   </div>
 
@@ -49,6 +50,10 @@
         </button>
         <button class="icon-btn" type="button" id="statsBtn" aria-label="Statistics">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="11" width="4.6" height="8.5" rx="1.4" fill="currentColor"/><rect x="9.7" y="6.5" width="4.6" height="13" rx="1.4" fill="currentColor"/><rect x="15.9" y="4.5" width="4.6" height="15" rx="1.4" fill="currentColor"/></svg>
+        </button>
+        <button class="icon-btn" type="button" id="soundBtn" aria-label="Sound" aria-pressed="true">
+          <svg class="sound-on" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9.2h3.6L12.4 5v14l-4.8-4.2H4z"/><path d="M15.4 9a4.2 4.2 0 0 1 0 6M17.9 6.4a7.8 7.8 0 0 1 0 11.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <svg class="sound-off" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 9.2h3.6L12.4 5v14l-4.8-4.2H4z"/><path d="M15.6 9.4l5 5.2m0-5.2-5 5.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
         </button>
         <button class="icon-btn" type="button" id="settingsBtn" aria-label="Settings">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M10.3 2.5h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.6.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6-2.6-.5v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/></svg>
@@ -94,8 +99,13 @@
           </div>
           <span class="stub-kicker" id="stubKicker"></span>
           <em class="stub-word" id="stubWord"></em>
-          <p class="stub-fact" id="stubFact"></p>
-          <a class="stub-source" href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
+          <div class="stub-fact" aria-live="polite">
+            <span class="flourish" aria-hidden="true"><i></i><b></b><i></i></span>
+            <strong class="fact-headline" id="factHeadline">Looking up the name…</strong>
+            <ul class="fact-chips" id="factChips" aria-label="Name facts"></ul>
+            <a class="stub-source" href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
+          </div>
+          <button class="story-link" type="button" id="storyLink" hidden></button>
         </div>
       </div>
       <div class="stub-actions">
@@ -107,12 +117,46 @@
         <button class="text-link" type="button" id="stubStatsBtn">Statistics</button>
         <button class="text-link" type="button" id="stubDailyBtn" hidden>Official daily</button>
       </div>
+
+      <section class="ticket prompt-ticket" id="boardPrompt" aria-labelledby="boardPromptTitle" hidden>
+        <div class="ticket-face">
+          <form class="prompt-join friends-form" id="promptJoin" novalidate>
+            <h3 id="boardPromptTitle">Put your score on a friends board</h3>
+            <p class="prompt-lead" id="promptLead">Pick a nickname. Start a board and send friends the link, or join theirs with a code. Today’s result goes on it.</p>
+            <label for="promptNickname">Your nickname</label>
+            <input id="promptNickname" name="nickname" autocomplete="nickname" maxlength="20" placeholder="Your name" />
+            <div class="prompt-code" id="promptCodeRow" hidden>
+              <label for="promptCode">Invite code</label>
+              <input id="promptCode" name="code" autocapitalize="characters" autocomplete="off" maxlength="8" placeholder="8-character code" />
+            </div>
+            <p class="prompt-error" id="promptError" role="alert" hidden></p>
+            <div class="prompt-actions">
+              <button class="brass-btn" type="button" id="promptStartBtn">Start a board</button>
+              <button class="brass-btn prompt-alt" type="button" id="promptJoinBtn">Join with a code</button>
+            </div>
+          </form>
+          <div class="prompt-done" id="promptDone" hidden>
+            <span class="prompt-kicker">Friends board</span>
+            <p class="prompt-status" id="promptStatus" role="status"></p>
+            <div class="prompt-actions">
+              <button class="brass-btn" type="button" id="promptCopyBtn">Copy invite</button>
+              <button class="brass-btn prompt-alt" type="button" id="promptSeeBtn">See the board</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <article class="ticket story-ticket" id="storyCard" aria-labelledby="storyTitle" hidden>
+        <div class="ticket-face">
+          <h2 class="story-title" id="storyTitle"></h2>
+          <div class="story-body" id="storyBody"></div>
+          <p class="story-sources" id="storySources"></p>
+        </div>
+      </article>
     </section>
 
     <div class="keyboard" id="keyboard" aria-label="Keyboard"></div>
   </div>
-
-  <div class="finish-fx" id="finishFx" aria-hidden="true"></div>
 
   <div class="toast-wrap"><div class="toast" id="toast" role="status"></div></div>
 
@@ -226,6 +270,20 @@
             <p>A dimmer stage for evening play.</p>
           </div>
           <button class="switch" type="button" id="darkSwitch" aria-pressed="false" aria-label="House lights down"><i></i></button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <h3>Music</h3>
+            <p>The house band, from your first tap.</p>
+          </div>
+          <button class="switch" type="button" id="musicSwitch" aria-pressed="true" aria-label="Music"><i></i></button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <h3>Sound effects</h3>
+            <p>Keys, bulbs and the win fanfare.</p>
+          </div>
+          <button class="switch" type="button" id="effectsSwitch" aria-pressed="true" aria-label="Sound effects"><i></i></button>
         </div>
         <div class="settings-row">
           <div>

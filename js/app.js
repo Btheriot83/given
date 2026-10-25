@@ -19,8 +19,17 @@ import {
   historyEndDate,
   HISTORY_START_DATE,
 } from "./engine.js";
-import { describeName } from "./name-notes.js";
 import { normalizeGroup } from "./leaderboard-core.js";
+import {
+  factCard,
+  nameStory,
+  meaningLine,
+  sourcesLine,
+  cultureKindLine,
+  cultureTitle,
+  titleCase as storyTitleCase,
+} from "./name-story.js";
+import { createAudio } from "./audio.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
@@ -78,7 +87,29 @@ const els = {
   stubScore: document.getElementById("stubScore"),
   stubKicker: document.getElementById("stubKicker"),
   stubWord: document.getElementById("stubWord"),
-  stubFact: document.getElementById("stubFact"),
+  factHeadline: document.getElementById("factHeadline"),
+  factChips: document.getElementById("factChips"),
+  storyLink: document.getElementById("storyLink"),
+  storyCard: document.getElementById("storyCard"),
+  storyTitle: document.getElementById("storyTitle"),
+  storyBody: document.getElementById("storyBody"),
+  storySources: document.getElementById("storySources"),
+  boardPrompt: document.getElementById("boardPrompt"),
+  promptJoin: document.getElementById("promptJoin"),
+  promptLead: document.getElementById("promptLead"),
+  promptNickname: document.getElementById("promptNickname"),
+  promptCodeRow: document.getElementById("promptCodeRow"),
+  promptCode: document.getElementById("promptCode"),
+  promptError: document.getElementById("promptError"),
+  promptStartBtn: document.getElementById("promptStartBtn"),
+  promptJoinBtn: document.getElementById("promptJoinBtn"),
+  promptDone: document.getElementById("promptDone"),
+  promptStatus: document.getElementById("promptStatus"),
+  promptCopyBtn: document.getElementById("promptCopyBtn"),
+  promptSeeBtn: document.getElementById("promptSeeBtn"),
+  soundBtn: document.getElementById("soundBtn"),
+  musicSwitch: document.getElementById("musicSwitch"),
+  effectsSwitch: document.getElementById("effectsSwitch"),
   stubShareBtn: document.getElementById("stubShareBtn"),
   stubCountdown: document.getElementById("stubCountdown"),
   stubNextLabel: document.getElementById("stubNextLabel"),
@@ -86,7 +117,8 @@ const els = {
   stubDailyBtn: document.getElementById("stubDailyBtn"),
 };
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-/* Bulb rings for the marquee pill and the NOW PLAYING banner (see Marquee.swift BulbRing). */
+/* Bulb rings for the marquee pill and the NOW PLAYING banner (see Marquee.swift BulbRing):
+   warm gold bulbs that chase in three phases, alternating with white-diamond bulbs that twinkle. */
 const bulbSpecs = {
   marqueePill: { inset: 7.25, spacing: 15, bulb: 2.3 },
   outcome: { inset: 9.5, spacing: 16, bulb: 3.1, radius: 22 },
@@ -122,6 +154,25 @@ let finishFxTimer;
 let nameNotesPromise;
 let historyCursor;
 let friends = readStore(STORAGE + ":friends", { group: "", nickname: "", playerId: "" });
+let postState = { key: "", status: "idle", message: "" };
+let storyDataPromise = null;
+let holdingBoard = false;
+let showToken = 0;
+let celebrateTimer;
+let beamFrame = 0;
+const WIN_HOLD = 1400;
+const BANNER_LEAD = 850;
+const sound = createAudio({ music: settings.music, effects: settings.effects });
+window.namedSound = { debug: () => sound.debug() };
+for (const type of ["pointerup", "touchend", "keydown", "click"]) {
+  window.addEventListener(type, (e) => {
+    if (type === "keydown" && (e.key === "Escape" || e.metaKey || e.ctrlKey || e.altKey)) return;
+    sound.unlock();
+  }, { capture: true, passive: true });
+}
+window.addEventListener("pointerdown", (e) => {
+  if (e.target.closest?.(".brass-btn, .puzzle-switch, .practice-length-link, .icon-btn, .switch, .close")) sound.play("ui_tap");
+}, { capture: true, passive: true });
 let invitedGroup = normalizeGroup(new URLSearchParams(location.search).get("group"));
 let boardDate = localDateKey();
 
@@ -153,6 +204,8 @@ function loadSettings() {
     colorblind: false,
     hardMode: false,
     seenHelp: false,
+    music: true,
+    effects: true,
     ...saved,
     practiceLength: normalizePracticeLength(saved.practiceLength),
   };
@@ -202,6 +255,12 @@ function applySettings() {
   toggleSwitch(els.darkSwitch, settings.dark);
   toggleSwitch(els.cbSwitch, settings.colorblind);
   toggleSwitch(els.hardSwitch, settings.hardMode);
+  toggleSwitch(els.musicSwitch, settings.music);
+  toggleSwitch(els.effectsSwitch, settings.effects);
+  const soundOn = settings.music || settings.effects;
+  els.soundBtn.classList.toggle("muted", !soundOn);
+  els.soundBtn.setAttribute("aria-pressed", String(soundOn));
+  els.soundBtn.setAttribute("aria-label", soundOn ? "Sound on" : "Sound off");
   for (const button of els.practiceLengthOptions) {
     button.setAttribute("aria-pressed", String(Number(button.dataset.practiceLength) === settings.practiceLength));
   }
@@ -277,14 +336,22 @@ function renderAll() {
   renderKeys();
   paintOutcome();
   layoutBulbs(els.marqueePill);
+  sound.setShow(mode === "daily" ? "daily" : "late");
 }
 
-function paintOutcome(animate = false) {
+/**
+ * The finished stage. `phase` "banner" is the win's middle beat: NOW PLAYING is up but the
+ * full board and keyboard still hold the stage; "done" collapses the board and brings up the
+ * ticket stub. `drop` and `rise` animate the banner and the stub in.
+ */
+function paintOutcome({ phase = "done", drop = false, rise = false } = {}) {
   const finished = game.status !== "playing";
-  els.app.classList.toggle("is-finished", finished);
+  const done = finished && phase === "done";
+  els.app.classList.toggle("is-over", finished);
+  els.app.classList.toggle("is-finished", done);
   els.marqueePill.hidden = finished;
   els.outcome.hidden = !finished;
-  els.resultStub.hidden = !finished;
+  els.resultStub.hidden = !done;
   if (!finished) {
     els.outcome.classList.remove("drop");
     els.resultStub.classList.remove("rise");
@@ -309,7 +376,6 @@ function paintOutcome(animate = false) {
         ? `Streak ${stats.streak}`
         : stats.maxStreak > 0 ? `Streak reset · best ${stats.maxStreak}` : "Streak 0";
   els.stubWord.textContent = won ? winWord(game.guesses.length) : daily ? "One more tomorrow." : "Try again?";
-  paintNameNote(game.puzzle.name);
   const obscureDone = obscureGame?.puzzle?.dateKey === localDateKey() && obscureGame.status !== "playing";
   const nextIsObscure = mode === "daily" && !obscureDone;
   const nextLabel = nextIsObscure ? "Play obscure" : "Another name";
@@ -320,14 +386,21 @@ function paintOutcome(animate = false) {
   els.stubNextLabel.textContent = mode === "daily" ? "Next name in" : mode === "obscure" ? "Next obscure in" : "New daily name in";
   els.stubDailyBtn.hidden = mode === "daily";
   els.nextDayNote.hidden = !game.puzzle.dateKey;
-  if (animate && !reducedMotion.matches) {
+  if (drop && !reducedMotion.matches) {
     els.outcome.classList.remove("drop");
-    els.resultStub.classList.remove("rise");
     void els.outcome.offsetWidth;
     els.outcome.classList.add("drop");
+  }
+  if (rise && !reducedMotion.matches) {
+    els.resultStub.classList.remove("rise");
+    void els.resultStub.offsetWidth;
     els.resultStub.classList.add("rise");
   }
   layoutBulbs(els.outcome, won);
+  if (done) {
+    paintNameNote(game.puzzle.name);
+    paintBoardPrompt();
+  }
 }
 
 function layoutBulbs(host, chase = true) {
@@ -346,17 +419,38 @@ function layoutBulbs(host, chase = true) {
   }
   const points = ringPoints(w, h, spec.inset, spec.radius ?? h / 2, spec.spacing);
   const gid = `bulbGlow-${host.id}`;
+  const wid = `bulbWhite-${host.id}`;
   const halo = spec.bulb * 3.4;
-  let off = "";
-  const on = ["", "", ""];
+  const glint = spec.bulb * 3.6;
+  const c = (x, y, r) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}"/>`;
+  // A four-point star: arms of length `glint`, pinched through the bulb's center.
+  const star = (x, y) => {
+    const [X, Y, l, r, t, b] = [x, y, x - glint, x + glint, y - glint, y + glint].map((v) => v.toFixed(1));
+    return `<path d="M${X} ${t}Q${X} ${Y} ${r} ${Y}Q${X} ${Y} ${X} ${b}Q${X} ${Y} ${l} ${Y}Q${X} ${Y} ${X} ${t}Z"/>`;
+  };
+  let goldBase = "";
+  let whiteBase = "";
+  const gold = ["", "", ""];
+  const twinkles = ["", "", "", "", ""];
+  let g = 0;
   points.forEach(([x, y], i) => {
-    off += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(spec.bulb * 0.9).toFixed(2)}"/>`;
-    on[i % 3] += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${halo.toFixed(2)}"/>`;
+    if (i % 2 === 0) {
+      goldBase += c(x, y, spec.bulb * 0.95);
+      gold[g++ % 3] += c(x, y, halo);
+    } else {
+      whiteBase += c(x, y, spec.bulb * 2.2);
+      twinkles[Math.floor(Math.random() * twinkles.length)] += c(x, y, spec.bulb * 2.8).replace("/>", ` fill="url(#${wid})"/>`) + star(x, y);
+    }
   });
-  layer.innerHTML = `<svg class="${chase ? "bulbs-chase" : ""}" viewBox="0 0 ${w} ${h}" aria-hidden="true" focusable="false">
-    <defs><radialGradient id="${gid}"><stop offset="0" stop-color="#fff"/><stop offset=".2" stop-color="#fff" stop-opacity=".92"/><stop offset=".3" stop-color="#ffd37a"/><stop offset=".55" stop-color="#ffd37a" stop-opacity=".4"/><stop offset="1" stop-color="#ffd37a" stop-opacity="0"/></radialGradient></defs>
-    <g class="bulb-off">${off}</g>
-    ${on.map((c, g) => `<g class="ph${g}" fill="url(#${gid})">${c}</g>`).join("")}
+  layer.innerHTML = `<svg class="bulbs${chase ? " bulbs-chase" : ""}" viewBox="0 0 ${w} ${h}" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="${gid}"><stop offset="0" stop-color="#fff"/><stop offset=".2" stop-color="#fff" stop-opacity=".92"/><stop offset=".3" stop-color="#ffd37a"/><stop offset=".55" stop-color="#ffd37a" stop-opacity=".4"/><stop offset="1" stop-color="#ffd37a" stop-opacity="0"/></radialGradient>
+      <radialGradient id="${wid}"><stop offset="0" stop-color="#fffdf5"/><stop offset=".34" stop-color="#fffdf5" stop-opacity=".95"/><stop offset=".5" stop-color="#dfeaff" stop-opacity=".45"/><stop offset="1" stop-color="#cfe0ff" stop-opacity="0"/></radialGradient>
+    </defs>
+    <g class="bulb-gold">${goldBase}</g>
+    ${gold.map((dots, i) => `<g class="ph${i}" fill="url(#${gid})">${dots}</g>`).join("")}
+    <g class="bulb-white" fill="url(#${wid})">${whiteBase}</g>
+    ${twinkles.map((dots, i) => `<g class="tw tw${i}">${dots}</g>`).join("")}
   </svg>`;
 }
 
@@ -396,7 +490,8 @@ function ringPoints(width, height, inset, radius, spacing) {
 function renderBoard() {
   const len = game.puzzle.length;
   els.board.style.setProperty("--len", String(len));
-  els.board.style.setProperty("--rows", String(game.status === "playing" ? MAX_GUESSES : Math.max(1, game.guesses.length)));
+  const fullBoard = game.status === "playing" || holdingBoard;
+  els.board.style.setProperty("--rows", String(fullBoard ? MAX_GUESSES : Math.max(1, game.guesses.length)));
   const reuse = els.board.children.length === MAX_GUESSES && els.board.dataset.len === String(len);
   if (!reuse) {
     els.board.replaceChildren();
@@ -412,7 +507,7 @@ function renderBoard() {
       els.board.appendChild(row);
     }
     row.classList.toggle("active", r === game.guesses.length && game.status === "playing");
-    row.classList.toggle("spare", game.status !== "playing" && r >= game.guesses.length);
+    row.classList.toggle("spare", !fullBoard && r >= game.guesses.length);
     const filled =
       game.guesses[r] || (r === game.guesses.length && game.status === "playing" ? game.current : "");
     const ev = game.evaluations[r];
@@ -507,9 +602,7 @@ function bindChrome() {
   };
   document.getElementById("moreHistoryBtn").onclick = paintHistory;
   document.getElementById("createGroupBtn").onclick = () => {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const bytes = crypto.getRandomValues(new Uint8Array(8));
-    els.groupCode.value = [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+    els.groupCode.value = newGroupCode();
   };
   document.getElementById("copyInviteBtn").onclick = copyInvite;
   document.getElementById("changeGroupBtn").onclick = () => {
@@ -533,6 +626,37 @@ function bindChrome() {
     settings.dark = !settings.dark;
     saveSettings();
     applySettings();
+  };
+  els.soundBtn.onclick = () => {
+    const on = !(settings.music || settings.effects);
+    settings.music = on;
+    settings.effects = on;
+    saveSettings();
+    applySettings();
+    sound.setEffects(on);
+    sound.setMusic(on);
+    toast(on ? "Music and sound on" : "Sound off");
+  };
+  els.musicSwitch.onclick = () => {
+    settings.music = !settings.music;
+    saveSettings();
+    applySettings();
+    sound.setMusic(settings.music);
+  };
+  els.effectsSwitch.onclick = () => {
+    settings.effects = !settings.effects;
+    saveSettings();
+    applySettings();
+    sound.setEffects(settings.effects);
+  };
+  els.promptJoin.onsubmit = (e) => { e.preventDefault(); promptJoin(); };
+  els.promptStartBtn.onclick = promptStart;
+  els.promptJoinBtn.onclick = promptJoin;
+  els.promptCopyBtn.onclick = copyInvite;
+  els.promptSeeBtn.onclick = openFriends;
+  els.storyLink.onclick = () => {
+    els.storyCard.scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth", block: "start" });
+    els.storyTitle.focus({ preventScroll: true });
   };
   els.cbSwitch.onclick = () => {
     settings.colorblind = !settings.colorblind;
@@ -584,6 +708,7 @@ function openOverlay(id) {
   lastFocus = document.activeElement;
   const ov = document.getElementById(id);
   ov.classList.add("open");
+  sound.duck(true);
   ov.querySelector(".close")?.focus({ focusVisible: keyboardUser });
   if (id === "helpOverlay") {
     settings.seenHelp = true;
@@ -592,6 +717,7 @@ function openOverlay(id) {
 }
 function closeOverlay(id) {
   document.getElementById(id).classList.remove("open");
+  if (!document.querySelector(".overlay.open")) sound.duck(false);
   if (lastFocus?.classList?.contains("icon-btn")) lastFocus.blur();
   else if (lastFocus && typeof lastFocus.focus === "function") lastFocus.focus();
 }
@@ -629,12 +755,9 @@ function handleKey(key) {
     return;
   }
   if (key === "ENTER") return submit();
-  if (key === "DEL") {
-    game = backspace(game);
-    renderBoard();
-    return;
-  }
-  game = typeLetter(game, key, game.puzzle.length);
+  const before = game.current;
+  game = key === "DEL" ? backspace(game) : typeLetter(game, key, game.puzzle.length);
+  if (game.current !== before) key === "DEL" ? sound.play("key_delete") : sound.keyTap();
   renderBoard();
 }
 
@@ -644,29 +767,90 @@ async function submit() {
   if (error) {
     toast(error);
     shakeCurrent();
+    sound.play("invalid_buzz");
     return;
   }
   revealing = true;
-  await flipRow(before.guesses.length, next.evaluations[next.evaluations.length - 1], next.guesses.at(-1));
+  const evaluation = next.evaluations[next.evaluations.length - 1];
+  revealSounds(evaluation);
+  await flipRow(before.guesses.length, evaluation, next.guesses.at(-1));
   game = next;
   saveGame();
   renderKeys();
-  if (game.status === "won") {
-    await liftWin();
-    recordFinish(true);
+  if (game.status === "playing") {
     renderBoard();
-    els.board.children[game.guesses.length - 1]?.classList.add("chasing");
-    paintOutcome(true);
-    showFinishEffect("won");
-  } else if (game.status === "lost") {
-    recordFinish(false);
-    renderBoard();
-    paintOutcome(true);
-    showFinishEffect("lost");
-  } else {
-    renderBoard();
+    revealing = false;
+    return;
   }
+  const won = game.status === "won";
+  loadStoryData().catch(() => {});
+  recordFinish(won);
+  await finishShow(won);
   revealing = false;
+}
+
+/** Sound lands with the tiles: a flip as each starts to turn, then its bulbs as the lit face shows. */
+function revealSounds(states) {
+  const reduce = reducedMotion.matches;
+  states.forEach((state, i) => {
+    if (!reduce) sound.play("tile_flip", { delay: i * 0.3 });
+    // A long correct-bulb tail is cut short when more bulbs follow.
+    const cut = state === "correct" && i < states.length - 1 ? 0.9 : null;
+    sound.play(`bulb_${state}`, { delay: reduce ? i * 0.08 : i * 0.3 + 0.25, maxDuration: cut });
+  });
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The finish, in the app's three beats (GameScreen.playWinMoment): on a win the full board
+ * holds while the winning row chases and the fanfare starts; then the spotlights sweep down as
+ * NOW PLAYING drops in; then the board collapses and the ticket stub slides up. A loss is the
+ * quiet version: one soft spot, the banner and the stub. Under reduced motion it all simply
+ * appears.
+ */
+async function finishShow(won) {
+  const motion = !reducedMotion.matches;
+  const token = ++showToken;
+  const stale = () => token !== showToken || game.status === "playing";
+  holdingBoard = motion;
+  renderBoard();
+  if (won) {
+    celebrate();
+    els.board.children[game.guesses.length - 1]?.classList.add("chasing");
+    if (motion) {
+      liftWin();
+      await sleep(WIN_HOLD);
+      if (stale()) return;
+    }
+  }
+  if (motion) {
+    paintOutcome({ phase: "banner", drop: true });
+    spotlights(won ? "won" : "lost");
+    await sleep(won ? BANNER_LEAD : 650);
+    if (stale()) return;
+    els.app.classList.add("collapsing");
+    await sleep(220);
+    els.app.classList.remove("collapsing");
+    if (stale()) return;
+  } else {
+    spotlights(won ? "won" : "lost");
+  }
+  holdingBoard = false;
+  renderBoard();
+  if (won) els.board.children[game.guesses.length - 1]?.classList.add("chasing");
+  paintOutcome({ phase: "done", rise: motion });
+  sound.play("ticket_tear", { delay: won ? (motion ? 0.15 : 0.9) : 0.25 });
+}
+
+/** The fanfare, the marquee lit up and the bulbs racing, for 4.2 seconds. */
+function celebrate() {
+  // Fanfare B for a plain daily win; fanfare A for obscure, practice and streak milestones.
+  const milestone = mode === "daily" && [7, 30, 100].includes(stats.streak);
+  sound.playWin(mode === "daily" && !milestone);
+  document.documentElement.classList.add("celebrating");
+  clearTimeout(celebrateTimer);
+  celebrateTimer = setTimeout(() => document.documentElement.classList.remove("celebrating"), reducedMotion.matches ? 2000 : 4200);
 }
 
 function titleCase(name) {
@@ -747,18 +931,71 @@ function liftWin() {
   });
 }
 
-function showFinishEffect(result) {
-  clearTimeout(finishFxTimer);
-  els.finishFx.replaceChildren();
-  els.finishFx.className = "finish-fx";
-  if (result !== "won" || reducedMotion.matches) return;
-  void els.finishFx.offsetWidth;
-  els.finishFx.className = "finish-fx won";
-  els.finishFx.append(document.createElement("i"), document.createElement("i"));
-  finishFxTimer = setTimeout(() => {
-    els.finishFx.className = "finish-fx";
-    els.finishFx.replaceChildren();
-  }, 3800);
+/** Where a follow-spot is aimed, in degrees from straight down, t seconds in (SpotlightShow.angle). */
+function beamAngle(side, t, motion) {
+  const rest = 50;
+  if (!motion) return side * rest;
+  const ease = (x) => { const v = Math.min(Math.max(x, 0), 1); return v * v * (3 - 2 * v); };
+  let aim;
+  if (t < 0) aim = 86;
+  else if (t < 1.0) aim = 86 + (30 - 86) * ease(t / 1.0);
+  else if (t < 1.8) aim = 30 + (rest - 30) * ease((t - 1.0) / 0.8);
+  else aim = rest + Math.min(1, (t - 1.8) / 1.2) * 8 * Math.sin((t - 1.8) * 0.9 + (side > 0 ? 2.1 : 0));
+  return side * aim;
+}
+
+/**
+ * Two follow-spots hung behind the valance in the top corners: as NOW PLAYING drops in they
+ * sweep down from the fringe across the banner, then sway over the stage. A loss gets one soft
+ * spot from above. Under reduced motion the beams just fade up, already aimed.
+ */
+function spotlights(result) {
+  cancelAnimationFrame(beamFrame);
+  const fx = els.finishFx;
+  fx.replaceChildren();
+  fx.className = `finish-fx ${result}`;
+  const motion = !reducedMotion.matches;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const length = height * 1.15;
+  const beamWidth = length * 0.24;
+  const sides = result === "won" ? [-1, 1] : [0];
+  const beams = sides.map((side) => {
+    const beam = document.createElement("i");
+    beam.className = "beam";
+    beam.innerHTML = '<span class="cone"></span><span class="core"></span>';
+    const x = side ? width * (0.5 + side * 0.56) : width / 2;
+    Object.assign(beam.style, {
+      left: `${(x - beamWidth / 2).toFixed(1)}px`,
+      top: side ? "36px" : "-24px",
+      width: `${beamWidth.toFixed(1)}px`,
+      height: `${length.toFixed(1)}px`,
+    });
+    fx.append(beam);
+    return { beam, side };
+  });
+  const peak = result === "won" ? (motion ? 1 : 0.6) : 0.5;
+  const fadeIn = result === "won" ? (motion ? 0.35 : 0.5) : 0.6;
+  const holdFor = result === "won" ? (motion ? (4200 - WIN_HOLD) / 1000 : 2) : 1.6;
+  const fadeOut = 1.2;
+  const begin = performance.now();
+  const frame = (now) => {
+    const t = (now - begin) / 1000;
+    const strength = t < fadeIn ? peak * (t / fadeIn) : t < holdFor ? peak : peak * Math.max(0, 1 - (t - holdFor) / fadeOut);
+    fx.style.opacity = strength.toFixed(3);
+    for (const { beam, side } of beams) {
+      const angle = side ? beamAngle(side, t, motion) : (motion ? 4 * Math.sin(t * 1.1) : 0);
+      beam.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+    }
+    if (t < holdFor + fadeOut) {
+      // Under reduced motion only the fade runs; the aim never changes.
+      beamFrame = requestAnimationFrame(frame);
+    } else {
+      fx.replaceChildren();
+      fx.className = "finish-fx";
+    }
+  };
+  beamFrame = requestAnimationFrame(frame);
 }
 
 function toast(msg, ms = 2000) {
@@ -799,18 +1036,91 @@ function openFriends() {
 
 function joinFriends(event) {
   event.preventDefault();
-  const group = normalizeGroup(els.groupCode.value.trim());
-  const nickname = els.nickname.value.trim().replace(/\s+/g, " ");
-  if (!group) return toast("Enter an 8-character invite code");
-  if (!/^[\p{L}\p{N} _.'-]{2,20}$/u.test(nickname)) return toast("Use 2–20 plain characters for your nickname");
+  const problem = joinBoard(els.groupCode.value, els.nickname.value);
+  if (problem) return toast(problem);
+  els.friendsForm.hidden = true;
+  els.friendsActive.hidden = false;
+  refreshFriends();
+}
+
+const NICKNAME = /^[\p{L}\p{N} _.'-]{2,20}$/u;
+
+function newGroupCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+}
+
+/** Joins (or starts) a board and posts today's finished daily to it. Returns a problem, or "". */
+function joinBoard(rawCode, rawNickname) {
+  const group = normalizeGroup(String(rawCode || "").trim().toUpperCase());
+  const nickname = String(rawNickname || "").trim().replace(/\s+/g, " ");
+  if (!NICKNAME.test(nickname)) return "Use 2–20 plain characters for your nickname";
+  if (!group) return "Enter an 8-character invite code";
   friends = { group, nickname, playerId: friends.playerId || crypto.randomUUID() };
   invitedGroup = group;
   writeStore(STORAGE + ":friends", friends);
   history.replaceState(null, "", `${location.pathname}?group=${group}`);
-  els.friendsForm.hidden = true;
-  els.friendsActive.hidden = false;
-  refreshFriends();
-  if (dailyGame?.status !== "playing") postResult();
+  postResult();
+  paintBoardPrompt();
+  return "";
+}
+
+function promptStart() {
+  const problem = joinBoard(newGroupCode(), els.promptNickname.value);
+  if (problem) return showPromptError(problem, els.promptNickname);
+}
+
+function promptJoin() {
+  if (els.promptCodeRow.hidden) {
+    els.promptCodeRow.hidden = false;
+    els.promptJoinBtn.textContent = "Join board";
+    els.promptError.hidden = true;
+    (NICKNAME.test(els.promptNickname.value.trim()) ? els.promptCode : els.promptNickname).focus();
+    return;
+  }
+  const nickname = els.promptNickname.value;
+  if (!NICKNAME.test(nickname.trim().replace(/\s+/g, " "))) return showPromptError("Use 2–20 plain characters for your nickname", els.promptNickname);
+  const problem = joinBoard(els.promptCode.value, nickname);
+  if (problem) showPromptError(problem, els.promptCode);
+}
+
+function showPromptError(message, field) {
+  els.promptError.textContent = message;
+  els.promptError.hidden = false;
+  field?.focus();
+}
+
+/** The stub's friends-board card: an invitation until you're on a board, then where your score went. */
+function paintBoardPrompt() {
+  const show = mode === "daily" && game?.status !== "playing" && game?.puzzle?.dateKey === localDateKey();
+  els.boardPrompt.hidden = !show;
+  if (!show) return;
+  const joined = Boolean(friends.group && friends.nickname) && (!invitedGroup || invitedGroup === friends.group);
+  els.promptJoin.hidden = joined;
+  els.promptDone.hidden = !joined;
+  if (!joined) {
+    if (!els.promptNickname.value) els.promptNickname.value = friends.nickname || "";
+    if (invitedGroup && invitedGroup !== friends.group) {
+      els.promptCodeRow.hidden = false;
+      els.promptCode.value = invitedGroup;
+      els.promptJoinBtn.textContent = "Join board";
+      els.promptLead.textContent = `A friend invited you to board ${invitedGroup}. Pick a nickname and today’s result goes on it.`;
+    }
+    return;
+  }
+  const score = game.status === "won" ? `${game.guesses.length}/6` : "X/6";
+  const key = `${game.puzzle.dateKey}:${friends.group}`;
+  const posted = postState.key === key ? postState.status : readStore(receiptKey(), false) ? "saved" : "idle";
+  els.promptStatus.textContent = posted === "saved"
+    ? `Your ${score} is on board ${friends.group} as ${friends.nickname}. Send friends the invite to see theirs.`
+    : posted === "error"
+      ? `Couldn’t post to board ${friends.group}: ${postState.message} It will try again next time you open Named.`
+      : `Posting your ${score} to board ${friends.group} as ${friends.nickname}…`;
+}
+
+function receiptKey() {
+  return `${STORAGE}:posted:${dailyGame?.puzzle?.dateKey}:${friends.group}:${friends.playerId}`;
 }
 
 function inviteUrl() {
@@ -859,21 +1169,31 @@ async function refreshFriends() {
 async function postResult() {
   const finished = dailyGame?.puzzle?.dateKey === localDateKey() && dailyGame.status !== "playing";
   if (!finished || !friends.group || !friends.nickname) return;
-  const receiptKey = `${STORAGE}:posted:${dailyGame.puzzle.dateKey}:${friends.group}:${friends.playerId}`;
-  if (readStore(receiptKey, false)) return;
+  const key = `${dailyGame.puzzle.dateKey}:${friends.group}`;
+  const receipt = receiptKey();
+  if (readStore(receipt, false)) {
+    postState = { key, status: "saved", message: "" };
+    paintBoardPrompt();
+    return;
+  }
+  postState = { key, status: "posting", message: "" };
+  paintBoardPrompt();
   try {
     const response = await fetch("/api/leaderboard", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...friends, dateKey: dailyGame.puzzle.dateKey, guesses: dailyGame.guesses }),
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Couldn’t save result");
-    writeStore(receiptKey, true);
+    writeStore(receipt, true);
+    postState = { key, status: "saved", message: "" };
     if (els.friends.classList.contains("open")) refreshFriends();
   } catch (error) {
+    postState = { key, status: "error", message: /[.!?]$/.test(error.message) ? error.message : `${error.message}.` };
     if (els.friends.classList.contains("open")) els.friendsStatus.textContent = error.message;
   }
+  paintBoardPrompt();
 }
 
 function paintStats() {
@@ -948,13 +1268,9 @@ function paintHistory() {
     row.addEventListener("toggle", async () => {
       if (!row.open) return;
       try {
-        nameNotesPromise ||= fetch("./data/name-notes.json").then(response => {
-          if (!response.ok) throw new Error("name notes");
-          return response.json();
-        });
-        fact.textContent = describeName(puzzle.name, await nameNotesPromise);
+        const { card, story } = await storyFor(puzzle.name);
+        fact.textContent = [plainText(card.headline) + ".", ...card.chips.map((chip) => `${chip}.`), story.popularity].filter(Boolean).join(" ");
       } catch {
-        nameNotesPromise = null;
         fact.textContent = "Name fact unavailable. Close and reopen to retry.";
       }
     });
@@ -965,26 +1281,120 @@ function paintHistory() {
   document.getElementById("moreHistoryBtn").hidden = historyCursor < HISTORY_START_DATE;
 }
 
-async function paintNameNote(name) {
-  els.nameNoteText.textContent = "Looking up the name…";
-  els.stubFact.textContent = "Looking up the name…";
-  nameNotesPromise ||= fetch("./data/name-notes.json").then((response) => {
-    if (!response.ok) throw new Error("name notes");
+function fetchJSON(url) {
+  return fetch(url).then((response) => {
+    if (!response.ok) throw new Error(url);
     return response.json();
   });
-  try {
-    const notes = await nameNotesPromise;
-    if (game?.puzzle?.name === name && game.status !== "playing") {
-      els.nameNoteText.textContent = describeName(name, notes);
-      els.stubFact.textContent = els.nameNoteText.textContent;
-    }
-  } catch {
-    nameNotesPromise = null;
-    if (game?.puzzle?.name === name) {
-      els.nameNoteText.textContent = "Name note unavailable right now.";
-      els.stubFact.textContent = els.nameNoteText.textContent;
-    }
+}
+
+/** The Name Story data, fetched once and only after a round ends (never on first paint). */
+function loadStoryData() {
+  storyDataPromise ||= Promise.all([fetchJSON("./data/name-facts.json"), fetchJSON("./data/name-stories.json")])
+    .then(([facts, stories]) => ({ facts, stories }))
+    .catch((error) => { storyDataPromise = null; throw error; });
+  return storyDataPromise;
+}
+
+/** The fact card and story for a name. Old names missing from the facts use the SSA notes. */
+async function storyFor(name) {
+  const { facts, stories } = await loadStoryData();
+  let notes = null;
+  if (!facts.names[String(name).toUpperCase()]) {
+    nameNotesPromise ||= fetchJSON("./data/name-notes.json").catch((error) => { nameNotesPromise = null; throw error; });
+    notes = await nameNotesPromise;
   }
+  return { card: factCard(name, facts, notes), story: nameStory(name, facts, stories) };
+}
+
+const plainText = (text) => String(text).replace(/\u00A0/g, " ");
+
+async function paintNameNote(name) {
+  const current = () => game?.puzzle?.name === name && game.status !== "playing";
+  if (els.storyCard.dataset.name !== name) {
+    els.nameNoteText.textContent = "Looking up the name…";
+    els.factHeadline.textContent = "Looking up the name…";
+    els.factChips.replaceChildren();
+    els.storyCard.hidden = true;
+    els.storyLink.hidden = true;
+  }
+  try {
+    const { card, story } = await storyFor(name);
+    if (!current()) return;
+    els.factHeadline.textContent = card.headline;
+    els.factChips.replaceChildren(...card.chips.map((chip) => {
+      const li = document.createElement("li");
+      li.textContent = chip;
+      return li;
+    }));
+    els.nameNoteText.textContent = [plainText(card.headline) + ".", ...card.chips.map((chip) => `${chip}.`)].join(" ");
+    renderStory(story);
+  } catch {
+    if (!current()) return;
+    els.factHeadline.textContent = "Name facts unavailable right now.";
+    els.nameNoteText.textContent = "Name facts unavailable right now.";
+  }
+}
+
+/**
+ * The Name Story card (KeepsakeViews.NameStoryCard): the hook, meaning, then and now, the line
+ * that lands, songs, films and books, famous namesakes and the sources.
+ */
+function renderStory(story) {
+  const el = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const label = (text) => el("h3", "story-label", text);
+  const culture = (item, lead) => {
+    const block = el("div", lead ? "story-hook culture" : "culture");
+    block.append(el("span", "culture-kind", cultureKindLine(item)), el(lead ? "strong" : "b", "culture-title", cultureTitle(item)), el("p", "culture-fact", item.fact));
+    return block;
+  };
+  const parts = [];
+  if (story.culture[0]) parts.push(culture(story.culture[0], true));
+  else if (story.record) parts.push(el("p", "story-hook record", story.record));
+  if (story.meaning || story.origin) {
+    const block = el("section", "story-part");
+    block.append(label("Meaning"), el("p", "story-meaning", meaningLine(story)));
+    parts.push(block);
+  }
+  if (story.popularity) {
+    const block = el("section", "story-part");
+    block.append(label("Then and now"), el("p", "", story.popularity));
+    parts.push(block);
+  }
+  if (story.feeling) parts.push(el("p", "story-feeling", story.feeling));
+  if (story.culture.length > 1 || (story.culture.length === 1 && story.record)) {
+    const block = el("section", "story-part story-ruled");
+    block.append(label("In songs, films & books"));
+    // The hook was the culture line; the record still belongs on the card.
+    if (story.culture.length === 1 && story.record) block.append(el("p", "story-record", story.record));
+    story.culture.slice(1).forEach((item) => block.append(culture(item, false)));
+    parts.push(block);
+  }
+  if (story.namesakes.length) {
+    const block = el("section", "story-part story-ruled");
+    block.append(label("Famous namesakes"));
+    const list = el("ul", "namesakes");
+    for (const person of story.namesakes) {
+      const li = el("li");
+      li.append(el("b", "", person.person), el("span", "", person.fact));
+      list.append(li);
+    }
+    block.append(list);
+    parts.push(block);
+  }
+  els.storyTitle.textContent = `The story of ${story.name}`;
+  els.storyTitle.tabIndex = -1;
+  els.storyBody.replaceChildren(...parts);
+  els.storySources.textContent = sourcesLine(story);
+  els.storyCard.dataset.name = game.puzzle.name;
+  els.storyCard.hidden = false;
+  els.storyLink.textContent = `The story of ${story.name}`;
+  els.storyLink.hidden = false;
 }
 
 async function share() {
@@ -1022,6 +1432,8 @@ function startPractice() {
   const previousName = game?.puzzle?.name;
   mode = "practice";
   game = createGame(pickRandomPuzzle(answerPools.familiar, Math.random, previousName, settings.practiceLength));
+  stopShow();
+  sound.play("curtain_whoosh");
   renderAll();
 }
 
@@ -1029,6 +1441,8 @@ function switchToObscure() {
   if (!answerPools.obscure.length) return toast("Names are still loading");
   if (els.stats.classList.contains("open")) closeOverlay("statsOverlay");
   if (mode === "daily") dailyGame = game;
+  stopShow();
+  sound.play("curtain_whoosh");
   bootObscure();
 }
 
@@ -1036,9 +1450,23 @@ function returnToDaily() {
   closeOverlay("statsOverlay");
   if (mode === "obscure") obscureGame = game;
   mode = "daily";
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights);
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
   game = dailyGame && dailyGame.puzzle?.dateKey === puzzle.dateKey
     ? dailyGame
     : loadDailySave(puzzle.dateKey) || createGame(puzzle);
+  stopShow();
+  sound.play("curtain_whoosh");
   renderAll();
+}
+
+/** Leaving a round mid-show: stop the beams and the celebration. */
+function stopShow() {
+  showToken++;
+  holdingBoard = false;
+  revealing = false;
+  cancelAnimationFrame(beamFrame);
+  els.finishFx.replaceChildren();
+  els.finishFx.className = "finish-fx";
+  els.app.classList.remove("collapsing");
+  document.documentElement.classList.remove("celebrating");
 }
