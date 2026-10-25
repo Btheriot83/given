@@ -19,6 +19,9 @@ equal(vsHeadline(s({ score: 2, betterThan: 0, tiedWith: 100 }, 1)), null, "singl
 equal(rankLine(null), "Play 3 more puzzles to get ranked", "no results");
 equal(rankLine({ played: 2, average: 3, percentile: null }), "Play 1 more puzzle to get ranked", "two results");
 equal(rankLine({ played: 14, average: 3.6, percentile: 72 }), "Better than 72% of players · average 3.6 over 14 puzzles", "ranked");
+equal(rankLine({ played: 4, average: 4, percentile: 0 }), "Average 4.0 over 4 puzzles · keep playing to climb", "below half never says better than 0%");
+equal(rankLine({ played: 9, average: 3.9, percentile: 49 }), "Average 3.9 over 9 puzzles · keep playing to climb", "49% uses the climb form");
+equal(rankLine({ played: 9, average: 3.4, percentile: 50 }), "Better than 50% of players · average 3.4 over 9 puzzles", "50% keeps the better-than form");
 equal(freeLine(2), "2 of 3 free today, from the last week", "free line");
 equal(cleanSummary({ number: "<b>", players: "9", you: { score: "2" } }).number, 0, "summary is coerced to numbers");
 

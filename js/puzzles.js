@@ -63,6 +63,7 @@ export function rankLine(overall) {
     const left = Math.max(0, 3 - (o.played || 0));
     return `Play ${left} more ${left === 1 ? "puzzle" : "puzzles"} to get ranked`;
   }
+  if (o.percentile < 50) return `Average ${o.average.toFixed(1)} over ${o.played} puzzles · keep playing to climb`;
   return `Better than ${o.percentile}% of players · average ${o.average.toFixed(1)} over ${o.played} puzzles`;
 }
 
