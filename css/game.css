@@ -36,6 +36,11 @@
   --bulb-present: #ffc23a;
   --bulb-off: #5a4630;
   --bulb-red: #ff4a3a;
+  /* Not in the name: red bulbs switched off, like an unlit marquee (Theme.swift bulbAbsent). */
+  --bulb-absent: #7a1f1f;
+  --glow-absent: rgba(200, 40, 40, .25);
+  --frame-absent: #3a1414;
+  --amber-ink: #7f520d;
   --enamel-correct: #1f8a4a;
   --enamel-present: #d8961a;
   --enamel-absent: #3b2a1d;
@@ -433,16 +438,17 @@ button:disabled { cursor: default; }
   box-shadow: inset 0 0 0 max(1px, calc(var(--tile) * .022)) var(--brass-hi), 0 0 calc(var(--tile) * .16) color-mix(in srgb, var(--bulb-present) 50%, transparent);
 }
 .tile[data-state="absent"] {
-  --bulb: var(--bulb-off);
-  background: linear-gradient(180deg, #4a3625, var(--enamel-absent));
-  box-shadow: inset 0 0 0 max(1px, calc(var(--tile) * .022)) rgba(138, 97, 36, .85), 0 2px 4px rgba(0, 0, 0, .5);
+  --bulb: var(--bulb-absent);
+  background: linear-gradient(180deg, #4a1c1c, var(--frame-absent));
+  box-shadow: inset 0 0 0 max(1px, calc(var(--tile) * .022)) rgba(201, 149, 59, .8), 0 0 calc(var(--tile) * .09) var(--glow-absent), 0 2px 4px rgba(0, 0, 0, .5);
   color: rgba(27, 20, 16, .82);
 }
 .tile[data-state="absent"]::before {
   background: linear-gradient(135deg, #8e7c5e, #6e5e46);
 }
+/* Same bulbs, same count and size as green and gold; only unlit: red glass, no hot core. */
 .tile[data-state="absent"]::after {
-  --dot: radial-gradient(circle closest-side, #6d573c 0 34%, #3c2c1c 46%, transparent 58%);
+  --dot: radial-gradient(circle closest-side, #9a3434 0 14%, var(--bulb-absent) 38%, var(--glow-absent) 62%, transparent 100%);
 }
 [data-colorblind="on"] .tile[data-state="absent"] { color: rgba(27, 20, 16, .95); }
 [data-colorblind="on"] .tile[data-state="correct"]::before,
@@ -508,9 +514,14 @@ button:disabled { cursor: default; }
 .key[data-state="present"] { --glow: var(--bulb-present); }
 .key[data-state="absent"] {
   background: linear-gradient(180deg, #6e5a40, #4e3d2a) padding-box, var(--brass-grad) border-box;
+  /* Not in the name: a dim red ring, a marquee switched off. */
+  box-shadow: inset 0 0 0 2px var(--bulb-absent), inset 0 0 4px var(--glow-absent), 0 0 5px var(--glow-absent), 0 2px 3px rgba(0, 0, 0, .55);
   color: rgba(243, 230, 196, .66);
 }
-[data-colorblind="on"] .key[data-state="absent"] { color: rgba(243, 230, 196, .92); }
+[data-colorblind="on"] .key[data-state="absent"] {
+  color: rgba(243, 230, 196, .92);
+  box-shadow: inset 0 0 0 3px var(--bulb-absent), 0 0 5px var(--glow-absent), 0 2px 3px rgba(0, 0, 0, .55);
+}
 .key[data-state="correct"]::after, .key[data-state="present"]::after {
   content: "";
   position: absolute;
