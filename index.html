@@ -29,6 +29,7 @@
   <link rel="preload" href="fonts/oswald.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="img/curtain.webp" as="image" type="image/webp" fetchpriority="high" />
   <link rel="stylesheet" href="css/game.css" />
+  <link rel="stylesheet" href="css/puzzles.css" />
 </head>
 <body>
   <div class="stage" aria-hidden="true">
@@ -82,9 +83,9 @@
           </div>
         </section>
         <div class="heading-links">
-          <button class="puzzle-switch" id="puzzleSwitch" type="button">Try obscure</button>
+          <button class="puzzle-switch" id="puzzleSwitch" type="button">Bonus name</button>
+          <button class="puzzle-switch puzzles-link" id="puzzlesLink" type="button">Puzzles</button>
           <div class="next-day-note" id="nextDayNote" hidden>New name tomorrow</div>
-          <button class="practice-length-link" id="practiceLengthLink" type="button" aria-label="Change length" hidden>Length</button>
         </div>
       </div>
       <div class="board" id="board" role="grid" aria-label="Guesses"></div>
@@ -93,6 +94,7 @@
     <section class="result-stub" id="resultStub" aria-label="Result" hidden>
       <div class="ticket stub-ticket">
         <div class="ticket-face">
+          <p class="stub-ribbon" id="stubRibbon" hidden></p>
           <div class="stub-head">
             <strong class="stub-name" id="stubName"></strong>
             <span class="stub-score" id="stubScore"></span>
@@ -110,13 +112,17 @@
       </div>
       <div class="stub-actions">
         <button class="brass-btn" type="button" id="stubShareBtn">Share result</button>
-        <button class="brass-btn next-name-btn" id="nextNameBtn" type="button" aria-label="Play another name"><span class="next-name-full">Play another name</span><span class="next-name-compact">Next name</span></button>
+        <button class="brass-btn next-name-btn" id="nextNameBtn" type="button"><span class="next-name-full">All puzzles</span><span class="next-name-compact">Puzzles</span></button>
       </div>
+      <p class="past-free-note" id="pastFreeNote" hidden></p>
       <p class="stub-next"><span id="stubNextLabel">Next name in</span> <b id="stubCountdown">00:00:00</b></p>
       <div class="stub-links">
         <button class="text-link" type="button" id="stubStatsBtn">Statistics</button>
-        <button class="text-link" type="button" id="stubDailyBtn" hidden>Official daily</button>
+        <button class="text-link" type="button" id="stubPuzzlesBtn">Puzzles</button>
+        <button class="text-link" type="button" id="stubDailyBtn" hidden>Today’s daily</button>
       </div>
+
+      <section class="ticket vs-ticket" id="vsCard" aria-label="You vs everyone" aria-live="polite" hidden></section>
 
       <section class="ticket prompt-ticket" id="boardPrompt" aria-labelledby="boardPromptTitle" hidden>
         <div class="ticket-face">
@@ -173,7 +179,7 @@
         </div>
         <div class="example" id="ex1" role="img" aria-label="Example guess JAMIE: J, A and M right spot; I not in the name; E wrong spot"></div>
         <p class="example-caption">If the answer is <b>JAMES</b>, the <b>E</b> is in the wrong spot.</p>
-        <p class="help-foot">A new name every midnight. Tap <b>Try obscure</b> for a harder puzzle.</p>
+        <p class="help-foot">A new name every midnight. Tap <b>Puzzles</b> to play past numbers, or <b>Bonus name</b> for a rarer five-letter name, new every midnight.</p>
         <button class="brass-btn wide-btn" type="button" data-close="helpOverlay">Take your seat</button>
       </div></div>
     </div>
@@ -194,8 +200,9 @@
           <p id="nameNoteText"></p>
           <a href="https://www.ssa.gov/oact/babynames/limits.html" target="_blank" rel="noopener noreferrer">Source: U.S. Social Security Administration</a>
         </section>
-        <p class="stats-scope" id="statsScopeNote" hidden>Official daily stats · bonus rounds do not count.</p>
+        <p class="stats-scope" id="statsScopeNote" hidden>Streak and stats count each day’s daily on its day. Past puzzles and bonus names count toward your rank.</p>
         <div class="stats-row" id="statsRow"></div>
+        <p class="overall-rank" id="overallRank"></p>
         <h3 class="dist-title">Guess distribution</h3>
         <div class="dist" id="dist"></div>
         <p class="reveal" id="reveal"></p>
@@ -207,11 +214,10 @@
           <button class="brass-btn primary" type="button" id="shareBtn">Share result</button>
         </div>
         <div class="menu-links">
-          <button class="text-link" type="button" id="practiceBtn">Play another name</button>
-          <button class="text-link" type="button" id="statsObscureBtn">Try today’s obscure puzzle</button>
-          <button class="text-link" type="button" id="todayBtn">Official daily</button>
+          <button class="text-link" type="button" id="historyBtn">All puzzles</button>
+          <button class="text-link" type="button" id="statsObscureBtn">Bonus name · a rarer five-letter name, new every midnight</button>
+          <button class="text-link" type="button" id="todayBtn">Today’s daily</button>
           <button class="text-link" type="button" id="statsFriendsBtn">See friends board</button>
-          <button class="text-link" type="button" id="historyBtn">Daily name history</button>
         </div>
       </div></div>
     </div>
@@ -221,10 +227,9 @@
     <div class="modal ticket" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
       <button class="close" type="button" data-close="historyOverlay" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg></button>
       <div class="ticket-face"><div class="sheet-body">
-        <h2 id="historyTitle">The names so far</h2>
-        <p class="sheet-intro">Official daily names, newest first. Today stays hidden until you finish. History starts September 26, 2026.</p>
-        <div id="nameHistory"></div>
-        <button class="text-link" type="button" id="moreHistoryBtn" hidden>Earlier names</button>
+        <h2 id="historyTitle">Puzzles</h2>
+        <p class="sheet-intro">Every daily, newest first. Names stay hidden until you play them.</p>
+        <div class="puzzle-list" id="nameHistory"></div>
       </div></div>
     </div>
   </div>
@@ -254,7 +259,7 @@
           <ol id="leaderboardList" class="leaderboard-list"></ol>
           <button type="button" class="text-link" id="changeGroupBtn">Use another code</button>
         </div>
-        <p class="friends-footnote">Official daily results only. Obscure and practice do not count. One result per device per group, kept for 90 days. Invite codes are unlisted, not private accounts.</p>
+        <p class="friends-footnote">Today’s daily results only. Bonus names and past puzzles do not count. One result per device per group, kept for 90 days. Invite codes are unlisted, not private accounts.</p>
       </div></div>
     </div>
   </div>
@@ -299,16 +304,6 @@
           </div>
           <button class="switch" type="button" id="hardSwitch" aria-pressed="false" aria-label="Hard mode"><i></i></button>
         </div>
-        <fieldset class="practice-settings">
-          <legend>Practice length</legend>
-          <p>Choose the length of your next unranked round. The official daily chooses its own length each day.</p>
-          <div class="length-options" role="group" aria-label="Practice name length">
-            <button type="button" data-practice-length="5" aria-pressed="true">5 letters</button>
-            <button type="button" data-practice-length="6" aria-pressed="false">6 letters</button>
-            <button type="button" data-practice-length="7" aria-pressed="false">7 letters</button>
-          </div>
-          <button class="brass-btn primary practice-start" type="button" id="startPracticeFromSettings">Start a new 5-letter round</button>
-        </fieldset>
       </div></div>
     </div>
   </div>
