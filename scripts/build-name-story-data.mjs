@@ -3,7 +3,7 @@
  *   data/name-facts.json   SSA facts (same short keys as the app's name-facts.json)
  *   data/name-stories.json meanings, origins, up to two songs/films/books and three namesakes
  *
- * Only names that can be a web answer are kept: the familiar, dailyFive and obscure pools,
+ * Only names that can be a web answer are kept: the familiar, dailyFive, dailySix, dailySeven and obscure pools,
  * plus every name the legacy schedule actually used (2026-01-01 through the day before
  * FAMILIAR_START_DATE). Source URLs and namesake eras are dropped; the card credits
  * Wiktionary and Wikipedia as a whole, like the app.
@@ -24,9 +24,9 @@ const pools = local("answer-pools.json");
 const facts = read(`${resources}/name-facts.json`);
 const stories = read(`${resources}/name-stories.json`);
 
-const keep = new Set([...pools.familiar, ...pools.dailyFive, ...pools.obscure].map((n) => n.toUpperCase()));
+const keep = new Set([...pools.familiar, ...pools.dailyFive, ...(pools.dailySix || []), ...(pools.dailySeven || []), ...pools.obscure].map((n) => n.toUpperCase()));
 for (let day = "2026-01-01"; day < FAMILIAR_START_DATE; day = shiftDateKey(day, 1)) {
-  keep.add(pickDailyPuzzle(names.answers, day, pools.familiar, pools.lengthWeights, pools.dailyFive).name);
+  keep.add(pickDailyPuzzle(names.answers, day, pools.familiar, pools.lengthWeights, pools).name);
 }
 
 const sorted = [...keep].sort();

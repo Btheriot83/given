@@ -87,7 +87,7 @@ equal(sourcesLine({ hasResearch: false, namesakes: [], culture: [] }), "Populari
 equal(sourcesLine(pauline), "Popularity: U.S. Social Security Administration birth records. Meanings, works and namesakes: Wiktionary and Wikipedia. People and works are listed for interest only and don't endorse Named.", "sources, full");
 
 // Every possible answer has a popularity line; no story has more than three namesakes or two works.
-for (const name of [...pools.familiar, ...pools.dailyFive, ...pools.obscure]) {
+for (const name of [...pools.familiar, ...pools.dailyFive, ...(pools.dailySix || []), ...(pools.dailySeven || []), ...pools.obscure]) {
   const story = nameStory(name, facts, stories);
   if (!story.popularity) throw new Error(`${name} has no popularity line`);
   if (story.namesakes.length > 3 || story.culture.length > 2) throw new Error(`${name} story too long`);
