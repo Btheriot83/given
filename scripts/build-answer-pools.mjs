@@ -17,8 +17,8 @@ const obscure = names.answers.filter((name) => {
   return name.length === 5 && total >= 5_000 && total < 20_000 && !familiarSet.has(name);
 });
 
-// From DAILY_SHORT_START_DATE the official daily is mostly five or six letters, with a
-// seven-letter name about one day a week (they are the hard ones). Each
+// From DAILY_SHORT_START_DATE the official daily is five or six letters; seven-letter names are
+// the Named+ "Long name". Each
 // pool is every familiar name of that length plus the next most common ones (40,000+ U.S.
 // births). Five-letter names never overlap the obscure pool (under 20,000).
 const everyday = (length) => names.answers.filter((name) => {

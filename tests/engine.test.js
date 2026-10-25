@@ -282,26 +282,24 @@ equal(rankEntries([
 
 console.log("engine.test.js: all passed");
 
-// From 2026-11-01 the daily is mostly five or six letters, seven about one day a week.
+// From 2026-11-01 the daily is five or six letters; seven is the Named+ Long name.
 {
   const { readFileSync } = await import("node:fs");
-  const { pickDailyPuzzle: pick, DAILY_SHORT_START_DATE: start } = await import("../js/engine.js");
+  const { pickDailyPuzzle: pick, pickLongPuzzle, DAILY_SHORT_START_DATE: start } = await import("../js/engine.js");
   const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
   const pools = JSON.parse(readFileSync(new URL("../data/answer-pools.json", import.meta.url)));
   const day = (key) => pick(names.answers, key, pools.familiar, pools.lengthWeights, pools);
   if (start !== "2026-11-01") throw new Error("short daily start moved");
   if (day("2026-10-24").name !== "PAULINE" || day("2026-10-25").name !== "JEAN") throw new Error("days before the switch must not change");
-  const counts = { 5: 0, 6: 0, 7: 0 };
-  const days = 730;
-  for (let i = 0; i < days; i++) {
+  const counts = { 5: 0, 6: 0 };
+  for (let i = 0; i < 730; i++) {
     const d = new Date(Date.UTC(2026, 10, 1 + i)).toISOString().slice(0, 10);
     const p = day(d);
-    if (![5, 6, 7].includes(p.length)) throw new Error(`${d} is ${p.length} letters`);
+    if (!(p.length in counts)) throw new Error(`${d} is ${p.length} letters`);
     counts[p.length]++;
   }
-  const share = (n) => counts[n] / days;
-  if (Math.abs(share(5) - 0.45) > 0.05 || Math.abs(share(6) - 0.40) > 0.05 || Math.abs(share(7) - 0.15) > 0.04) {
-    throw new Error(`length mix off: ${JSON.stringify(counts)}`);
-  }
-  console.log("short daily: ok", JSON.stringify(counts), [...Array(7)].map((_, i) => day(`2026-11-0${1 + i}`).name).join(" "));
+  if (Math.abs(counts[5] - counts[6]) > 60) throw new Error(`length mix off: ${JSON.stringify(counts)}`);
+  const long = pickLongPuzzle(pools.dailySeven, "2026-11-01");
+  if (long.length !== 7 || long.kind !== "long" || pickLongPuzzle(pools.dailySeven, "2026-11-01").name !== long.name) throw new Error("long name");
+  console.log("short daily: ok", JSON.stringify(counts), [...Array(7)].map((_, i) => day(`2026-11-0${1 + i}`).name).join(" "), "| long:", long.name);
 }

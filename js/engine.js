@@ -7,14 +7,11 @@ export const PLAY_LENGTH = 5;
 export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
 export const FAMILIAR_START_DATE = "2026-09-27";
 export const HISTORY_START_DATE = "2026-09-26";
-/** From this date the official daily is mostly five or six letters, with a seven-letter name
- *  about one day in seven (they are the hard ones): a seeded draw per date over the `dailyFive`,
- *  `dailySix` and `dailySeven` pools. */
+/** From this date the official daily is five or six letters, a seeded even draw per date over
+ *  the `dailyFive` and `dailySix` pools. Seven-letter names are the Named+ "Long name". */
 export const DAILY_SHORT_START_DATE = "2026-11-01";
 /** The earlier name for the same date. */
 export const DAILY_FIVE_START_DATE = DAILY_SHORT_START_DATE;
-/** Chance of each length from DAILY_SHORT_START_DATE (cumulative cut points 0.45 and 0.85). */
-export const DAILY_LENGTH_MIX = Object.freeze({ 5: 0.45, 6: 0.40, 7: 0.15 });
 
 export function historyEndDate(today, daily) {
   return daily?.puzzle?.dateKey === today && ["won", "lost"].includes(daily.status)
@@ -168,14 +165,13 @@ export function dailyOrder(answers, seed = "GIVEN-DAILY-v2") {
   return arr;
 }
 
-/** `dailyPools` is the answer-pools object: `{ dailyFive, dailySix, dailySeven }`. */
+/** `dailyPools` is the answer-pools object: `{ dailyFive, dailySix }`. */
 export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights, dailyPools) {
   if (dateKey >= DAILY_SHORT_START_DATE) {
-    const pools = { 5: dailyPools?.dailyFive, 6: dailyPools?.dailySix, 7: dailyPools?.dailySeven };
-    if (![5, 6, 7].every((n) => pools[n]?.length)) throw new Error("No five-, six- and seven-letter daily answers configured");
-    const draw = mulberry32(hashString(`NAMED-DAILY567-LEN-v2:${dateKey}`))();
-    const length = draw < DAILY_LENGTH_MIX[5] ? 5 : draw < DAILY_LENGTH_MIX[5] + DAILY_LENGTH_MIX[6] ? 6 : 7;
-    const order = dailyOrder(pools[length], `NAMED-DAILY567-v1:${length}`);
+    const pools = { 5: dailyPools?.dailyFive, 6: dailyPools?.dailySix };
+    if (!pools[5]?.length || !pools[6]?.length) throw new Error("No five- and six-letter daily answers configured");
+    const length = mulberry32(hashString(`NAMED-DAILY56-LEN-v5:${dateKey}`))() < 0.5 ? 5 : 6;
+    const order = dailyOrder(pools[length], `NAMED-DAILY56-v1:${length}`);
     const num = puzzleNumber(dateKey);
     const name = order[(num - puzzleNumber(DAILY_SHORT_START_DATE)) % order.length];
     return { name, length: name.length, dateKey, index: num };
@@ -211,6 +207,15 @@ export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights
     dateKey,
     index: num,
   };
+}
+
+/** The Named+ "Long name": one seven-letter everyday name per date (`dailySeven`). */
+export function pickLongPuzzle(dailySeven, dateKey) {
+  if (!dailySeven?.length) throw new Error("No seven-letter answers configured");
+  const order = dailyOrder(dailySeven, "NAMED-LONG-v1");
+  const num = puzzleNumber(dateKey);
+  const name = order[(num - 1 + order.length) % order.length];
+  return { name, length: name.length, dateKey, index: num, kind: "long" };
 }
 
 export function pickObscurePuzzle(answers, dateKey) {
