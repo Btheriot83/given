@@ -11,6 +11,8 @@
 //
 // DELETE /api/results?installId=<uuid>   (Authorization: Bearer $ATTRIBUTION_ADMIN_TOKEN)
 //   -> 204 after removing every result of one install and backing out the counts; 404 if absent.
+// DELETE /api/results?installIdPrefix=7e57d0d0-0000-   (same bearer; test cleanup)
+//   -> 200 { removed } after deleting every install whose ID starts with the prefix.
 //
 // Storage (Upstash Redis):
 //   named:res:<number>      hash d1..d6, x (failed), n (players)
@@ -244,6 +246,21 @@ export function createHandler({ env = process.env, fetchImpl = (...args) => fetc
     return removed > 0 || Number(deletedPlayer) > 0 || Number(zrem) > 0;
   }
 
+  async function scanPlayers(pipeline, prefix) {
+    const found = new Set();
+    let cursor = "0";
+    for (let guard = 0; guard < 1000; guard++) {
+      const [[next, keys]] = await pipeline([["SCAN", cursor, "MATCH", `${playerKey(prefix)}*`, "COUNT", 1000]]);
+      for (const key of keys || []) {
+        const id = normalizeInstallId(String(key).slice(playerKey("").length));
+        if (id) found.add(id);
+      }
+      cursor = String(next);
+      if (cursor === "0") break;
+    }
+    return [...found];
+  }
+
   return async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     const fail = (status, error) => res.status(status).json({ error });
@@ -254,10 +271,21 @@ export function createHandler({ env = process.env, fetchImpl = (...args) => fetc
       const header = String(req.headers?.authorization || "");
       const given = header.startsWith("Bearer ") ? header.slice(7) : "";
       if (!given || !sameSecret(given, secret)) return fail(401, "Unauthorized");
-      const installId = normalizeInstallId(req.query?.installId);
-      if (!installId) return fail(400, "Invalid request");
       const pipeline = storage();
       if (!pipeline) return fail(503, "Storage is not connected");
+      const prefix = String(req.query?.installIdPrefix || "").toLowerCase();
+      if (prefix) {
+        if (!/^[0-9a-f]{8}-[0-9a-f-]{5,27}$/.test(prefix)) return fail(400, "Invalid request");
+        try {
+          let removed = 0;
+          for (const installId of await scanPlayers(pipeline, prefix)) if (await remove(pipeline, installId)) removed++;
+          return res.status(200).json({ removed });
+        } catch {
+          return fail(503, "Storage unavailable");
+        }
+      }
+      const installId = normalizeInstallId(req.query?.installId);
+      if (!installId) return fail(400, "Invalid request");
       try {
         return (await remove(pipeline, installId)) ? res.status(204).end() : fail(404, "Not found");
       } catch {

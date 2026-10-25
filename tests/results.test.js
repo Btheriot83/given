@@ -78,6 +78,10 @@ function fakeRedis() {
         strings.delete(key);
         return existed ? 1 : 0;
       }
+      case "SCAN": {
+        const pattern = String(args[1]).replace(/\*$/, "");
+        return ["0", [...hashes.keys()].filter((k) => k.startsWith(pattern) && hashes.get(k).size)];
+      }
       case "ZADD":
         zset(key).set(args[1], Number(args[0]));
         return 1;
@@ -338,6 +342,24 @@ test("405, 503 and admin DELETE", async () => {
   assert(!redis.zsets.get("named:rank").has(uuid(12)), "removed from rank");
   equal(redis.hget(`named:plr:${uuid(12)}`), {}, "player hash gone");
   equal((await call(handler, { method: "DELETE", query: { installId: uuid(12) }, headers: auth })).statusCode, 404, "second delete");
+});
+
+test("admin DELETE by test prefix removes only matching installs", async () => {
+  const { redis, handler } = setup();
+  const auth = { authorization: "Bearer admin-secret" };
+  const testId = (i) => `7e57d0d0-0000-4000-8000-${String(i).padStart(12, "0")}`;
+  await call(handler, { body: { installId: testId(1), dateKey: TODAY, guesses: winIn(TODAY, 2) } });
+  await call(handler, { body: { installId: testId(2), dateKey: TODAY, guesses: lose(TODAY) } });
+  await call(handler, { body: { installId: uuid(20), dateKey: TODAY, guesses: winIn(TODAY, 4) } });
+  equal((await call(handler, { method: "DELETE", query: { installIdPrefix: "7e57d0d0-0000-" } })).statusCode, 401, "needs bearer");
+  equal((await call(handler, { method: "DELETE", query: { installIdPrefix: "7e5" }, headers: auth })).statusCode, 400, "prefix too short");
+  const res = await call(handler, { method: "DELETE", query: { installIdPrefix: "7E57D0D0-0000-" }, headers: auth });
+  equal(res.statusCode, 200, "status");
+  equal(res.body, { removed: 2 }, "removed two");
+  const n = puzzleNumber(TODAY);
+  equal(redis.hget(`named:res:${n}:p`), { [uuid(20)]: "4" }, "real player kept");
+  const stats = redis.hget(`named:res:${n}`);
+  equal([stats.n, stats.d4, stats.d2, stats.x], ["1", "1", "0", "0"], "counts backed out");
 });
 
 test("buildSummary handles a missing number hash", () => {
