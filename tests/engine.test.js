@@ -171,23 +171,20 @@ assert(answerPools.familiar.every((name) => {
 equal(FAMILIAR_START_DATE, "2026-09-27", "familiar schedule preserves September 26's existing puzzle");
 equal(pickDailyPuzzle(names.answers, "2026-09-25", answerPools.familiar).name, "AUDIE", "today's existing official puzzle stays unchanged");
 equal(pickDailyPuzzle(names.answers, "2026-09-26", answerPools.familiar).name, "WENDY", "tomorrow's existing official puzzle stays unchanged");
-const daily = (date) => pickDailyPuzzle(names.answers, date, answerPools.familiar, answerPools.lengthWeights);
+const daily = (date) => pickDailyPuzzle(names.answers, date, answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
 assert(answerPools.familiar.includes(daily(FAMILIAR_START_DATE).name), "familiar schedule starts September 27");
 assert(answerPools.familiar.includes("BRANDON"), "Brandon is eligible for the official daily");
 const lengthCounts = { 4: 0, 5: 0, 6: 0, 7: 0 };
 const replayDates = {};
-for (let offset = 0; offset < 1461; offset++) {
+// Mixed lengths ran from the familiar start until the five-letter daily (tested at the end).
+const mixedDays = puzzleNumber("2026-10-25") - puzzleNumber(FAMILIAR_START_DATE);
+for (let offset = 0; offset < mixedDays; offset++) {
   const date = dateKeyFromPuzzleNumber(puzzleNumber(FAMILIAR_START_DATE) + offset);
   const puzzle = daily(date);
   equal(puzzle, daily(date), "daily length and answer stay stable for a date");
   assert(answerPools.familiar.includes(puzzle.name), "official answer remains familiar");
   lengthCounts[puzzle.length]++;
   replayDates[puzzle.length] ||= date;
-}
-const totalWeight = Object.values(answerPools.lengthWeights).reduce((a, b) => a + b, 0);
-for (const length of [4, 5, 6, 7]) {
-  assert(lengthCounts[length] > 0, "every supported length appears");
-  assert(Math.abs(lengthCounts[length] / 1461 - answerPools.lengthWeights[length] / totalWeight) < .05, "length mix follows recorded birth frequencies");
 }
 const obscurePuzzle = pickObscurePuzzle(answerPools.obscure, "2026-09-27");
 equal(obscurePuzzle.kind, "obscure", "bonus puzzle is labeled separately");
@@ -284,3 +281,23 @@ equal(rankEntries([
 ]).map((entry) => entry.nickname), ["One", "Two", "Lost"], "rank by guesses then loss");
 
 console.log("engine.test.js: all passed");
+
+// From 2026-10-25 the official daily is always five letters, from the dailyFive pool.
+{
+  const { readFileSync } = await import("node:fs");
+  const { pickDailyPuzzle: pick, DAILY_FIVE_START_DATE: start } = await import("../js/engine.js");
+  const names = JSON.parse(readFileSync(new URL("../data/names.json", import.meta.url)));
+  const pools = JSON.parse(readFileSync(new URL("../data/answer-pools.json", import.meta.url)));
+  const day = (key) => pick(names.answers, key, pools.familiar, pools.lengthWeights, pools.dailyFive);
+  if (start !== "2026-10-25") throw new Error("five-letter daily start moved");
+  if (day("2026-10-24").name !== "PAULINE") throw new Error("days before the switch must not change");
+  const seen = new Set();
+  for (let i = 0; i < pools.dailyFive.length; i++) {
+    const d = new Date(Date.UTC(2026, 9, 25 + i)).toISOString().slice(0, 10);
+    const p = day(d);
+    if (p.length !== 5) throw new Error(`${d} is ${p.length} letters`);
+    seen.add(p.name);
+  }
+  if (seen.size !== pools.dailyFive.length) throw new Error("five-letter daily repeats before the pool is used up");
+  console.log("five-letter daily: ok", [...Array(5)].map((_, i) => day(`2026-10-${25 + i}`).name).join(" "));
+}

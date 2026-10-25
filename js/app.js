@@ -214,7 +214,7 @@ function toggleSwitch(el, on) {
 }
 
 function bootDaily() {
-  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights);
+  const puzzle = pickDailyPuzzle(names.answers, localDateKey(), answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
   const saved = loadDailySave(puzzle.dateKey);
   mode = "daily";
   if (saved) {
@@ -937,7 +937,7 @@ function paintHistory() {
   const list = document.getElementById("nameHistory");
   let count = 0;
   while (historyCursor >= HISTORY_START_DATE && count++ < 30) {
-    const puzzle = pickDailyPuzzle(names.answers, historyCursor, answerPools.familiar, answerPools.lengthWeights);
+    const puzzle = pickDailyPuzzle(names.answers, historyCursor, answerPools.familiar, answerPools.lengthWeights, answerPools.dailyFive);
     const row = document.createElement("details");
     row.className = "history-entry";
     const label = document.createElement("summary");

@@ -17,11 +17,19 @@ const obscure = names.answers.filter((name) => {
   return name.length === 5 && total >= 5_000 && total < 20_000 && !familiarSet.has(name);
 });
 
+// From DAILY_FIVE_START_DATE the official daily is always five letters (like Wordle). Its pool
+// is every familiar five-letter name plus the next most common ones (40,000+ U.S. births), so
+// it runs close to a year before repeating. Never overlaps the obscure pool (under 20,000).
+const dailyFive = names.answers.filter((name) => {
+  const fact = notes.counts[name];
+  return fact && name.length === 5 && (familiarSet.has(name) || fact.total >= 40_000);
+});
+
 // Weight lengths by recorded births, then give names within a length equal turns.
 const lengthWeights = Object.fromEntries([4, 5, 6, 7].map((length) => [
   length, familiar.filter((name) => name.length === length)
     .reduce((sum, name) => sum + notes.counts[name].total, 0),
 ]));
-const output = { familiar, obscure, lengthWeights };
+const output = { familiar, obscure, dailyFive, lengthWeights };
 writeFileSync(new URL("../data/answer-pools.json", import.meta.url), `${JSON.stringify(output)}\n`);
-console.log(`Familiar: ${familiar.length}; obscure: ${obscure.length}`);
+console.log(`Familiar: ${familiar.length}; daily five: ${dailyFive.length}; obscure: ${obscure.length}`);

@@ -7,6 +7,8 @@ export const PLAY_LENGTH = 5;
 export const PRACTICE_LENGTHS = Object.freeze([5, 6, 7]);
 export const FAMILIAR_START_DATE = "2026-09-27";
 export const HISTORY_START_DATE = "2026-09-26";
+/** From this date the official daily is always five letters, from the `dailyFive` pool. */
+export const DAILY_FIVE_START_DATE = "2026-10-25";
 
 export function historyEndDate(today, daily) {
   return daily?.puzzle?.dateKey === today && ["won", "lost"].includes(daily.status)
@@ -160,7 +162,14 @@ export function dailyOrder(answers, seed = "GIVEN-DAILY-v2") {
   return arr;
 }
 
-export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights) {
+export function pickDailyPuzzle(answers, dateKey, familiarAnswers, lengthWeights, dailyFive) {
+  if (dateKey >= DAILY_FIVE_START_DATE) {
+    if (!Array.isArray(dailyFive) || !dailyFive.length) throw new Error("No five-letter daily answers configured");
+    const order = dailyOrder(dailyFive, "NAMED-DAILY5-v1");
+    const num = puzzleNumber(dateKey);
+    const name = order[(num - puzzleNumber(DAILY_FIVE_START_DATE)) % order.length];
+    return { name, length: name.length, dateKey, index: num };
+  }
   const familiar = dateKey >= FAMILIAR_START_DATE;
   if (familiar && (!Array.isArray(familiarAnswers) || !familiarAnswers.length)) {
     throw new Error("No familiar answers configured");
