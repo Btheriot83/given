@@ -6,9 +6,14 @@
  * until the first tap or key press (`unlock`). Effects are decoded once into buffers so a key
  * tap has no lag and sounds can overlap. The music is one seamless loop per show (A for the
  * daily, B for obscure and practice) that ducks under sheets, fades under the win fanfare and
- * stops while the tab is hidden. On Safari the session is "ambient": the ring/silent switch
- * mutes Named and the player's own podcast or playlist keeps playing.
+ * stops while the tab is hidden. On Safari the session starts "ambient": the ring/silent switch
+ * mutes Named and the player's own podcast or playlist keeps playing. Once the player turns sound
+ * on themselves (the speaker or the Music switch), the session becomes "playback" so the show
+ * plays even with the iPhone on silent (`setPlayback`).
  */
+
+/** Whether this browser exposes the Audio Session API (Safari 16.4+), i.e. has a silent-switch mode. */
+export const hasAudioSession = () => typeof navigator !== "undefined" && "audioSession" in navigator;
 
 const BASE = "audio/";
 /** Relative levels from the app's reference mix (Sound.gain). */
@@ -27,7 +32,7 @@ const FANFARES = { a: "win_fanfare", b: "win_fanfare_alt" };
 const MUSIC_LEVEL = 0.4;
 const FANFARE_LEVEL = 0.8;
 
-export function createAudio({ music = true, effects = true } = {}) {
+export function createAudio({ music = true, effects = true, playback = false } = {}) {
   let ctx = null;
   let musicBus = null;
   let fanfareBus = null;
@@ -41,7 +46,13 @@ export function createAudio({ music = true, effects = true } = {}) {
   let holding = false; // the win fanfare has the stage
   let holdTimer = 0;
   let visible = typeof document === "undefined" || !document.hidden;
-  const state = { music, effects };
+  const state = { music, effects, playback: Boolean(playback) };
+
+  function applySession() {
+    try {
+      if (hasAudioSession()) navigator.audioSession.type = state.playback ? "playback" : "ambient";
+    } catch { /* older Safari */ }
+  }
 
   const now = () => ctx.currentTime;
   const musicTarget = () => (ducked ? MUSIC_LEVEL * 0.4 : MUSIC_LEVEL);
@@ -75,9 +86,7 @@ export function createAudio({ music = true, effects = true } = {}) {
     }
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
-    try {
-      if (navigator.audioSession) navigator.audioSession.type = "ambient";
-    } catch { /* older Safari */ }
+    applySession();
     ctx = new Ctx({ latencyHint: "interactive" });
     musicBus = ctx.createGain();
     musicBus.gain.value = 1;
@@ -217,6 +226,13 @@ export function createAudio({ music = true, effects = true } = {}) {
     else stopMusic(0.6);
   }
 
+  /** "playback" plays through the silent switch; "ambient" (the default) respects it. */
+  function setPlayback(on) {
+    state.playback = Boolean(on);
+    applySession();
+    if (ctx && ctx.state === "suspended" && visible) ctx.resume().catch(() => {});
+  }
+
   function setEffects(on) {
     state.effects = Boolean(on);
     if (ctx && state.effects) Object.keys(EFFECTS).forEach(load);
@@ -241,12 +257,13 @@ export function createAudio({ music = true, effects = true } = {}) {
   }
 
   return {
-    unlock, play, keyTap, setShow, duck, playWin, setMusic, setEffects,
+    unlock, play, keyTap, setShow, duck, playWin, setMusic, setEffects, setPlayback,
     get unlocked() { return Boolean(ctx); },
     /** For tests and debugging: what is loaded and playing. */
     debug() {
       return {
-        context: ctx?.state || "none", music: state.music, effects: state.effects, show, ducked, holding,
+        context: ctx?.state || "none", music: state.music, effects: state.effects, playback: state.playback,
+        session: hasAudioSession() ? navigator.audioSession.type : "unsupported", show, ducked, holding,
         loop: loop?.name || null, loaded: [...buffers.keys()].sort(),
       };
     },

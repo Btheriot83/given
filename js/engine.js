@@ -349,7 +349,7 @@ export function shareGrid(game, { url = "" } = {}) {
   const score = game.status === "won" ? String(game.guesses.length) : "X";
   const num = game.puzzle.dateKey ? puzzleNumber(game.puzzle.dateKey) : null;
   const title = num
-    ? `NAMED ${game.puzzle.kind === "obscure" ? "OBSCURE " : ""}${num} ${score}/${MAX_GUESSES}`
+    ? `NAMED ${game.puzzle.kind === "obscure" ? "OBSCURE " : game.puzzle.kind === "long" ? "LONG " : ""}${num} ${score}/${MAX_GUESSES}`
     : `NAMED PRACTICE · ${game.puzzle.length} LETTERS ${score}/${MAX_GUESSES}`;
   return [title, "", ...rows, ...(url ? ["", url] : [])].join("\n");
 }

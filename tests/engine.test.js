@@ -6,6 +6,7 @@ import {
   validateGuess,
   pickDailyPuzzle,
   pickObscurePuzzle,
+  pickLongPuzzle,
   pickRandomPuzzle,
   normalizePracticeLength,
   checkHardMode,
@@ -195,6 +196,12 @@ let obscureWin = createGame(obscurePuzzle);
 obscureWin.current = obscurePuzzle.name;
 obscureWin = submitGuess(obscureWin, new Set(names.guesses)).game;
 assert(shareGrid(obscureWin).startsWith("NAMED OBSCURE "), "obscure sharing cannot be mistaken for official score");
+{
+  const longPuzzle = pickLongPuzzle(answerPools.dailySeven, "2026-11-02");
+  let longGame = createGame(longPuzzle);
+  longGame = { ...longGame, guesses: [longPuzzle.name], evaluations: [Array(7).fill("correct")], status: "won" };
+  assert(shareGrid(longGame).startsWith(`NAMED LONG ${puzzleNumber("2026-11-02")} 1/6`), "Long name shares as NAMED LONG N, like the iPhone");
+}
 assert(utcDateKey(new Date("2026-08-13T12:00:00Z")) === "2026-08-13", "local date key at noon utc");
 
 const keys = bestKeyStates(["BERT"], [evaluateGuess("BERT", "BETH")]);

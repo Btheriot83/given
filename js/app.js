@@ -26,7 +26,8 @@ import {
   cultureTitle,
   titleCase as storyTitleCase,
 } from "./name-story.js";
-import { createAudio } from "./audio.js";
+import { createAudio, hasAudioSession } from "./audio.js";
+import { isIOS, showSoundHint } from "./sound-hint.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
@@ -113,6 +114,15 @@ const els = {
   stubRibbon: document.getElementById("stubRibbon"),
   pastFreeNote: document.getElementById("pastFreeNote"),
   vsCard: document.getElementById("vsCard"),
+  upNext: document.getElementById("upNext"),
+  upNextKicker: document.getElementById("upNextKicker"),
+  upNextBtn: document.getElementById("upNextBtn"),
+  upNextLabel: document.getElementById("upNextLabel"),
+  upNextNote: document.getElementById("upNextNote"),
+  upNextShare: document.getElementById("upNextShare"),
+  upNextCountdown: document.getElementById("upNextCountdown"),
+  upNextTomorrow: document.getElementById("upNextTomorrow"),
+  upNextTop: document.getElementById("upNextTop"),
   overallRank: document.getElementById("overallRank"),
   puzzleList: document.getElementById("nameHistory"),
   history: document.getElementById("historyOverlay"),
@@ -165,13 +175,29 @@ let celebrateTimer;
 let beamFrame = 0;
 const WIN_HOLD = 1400;
 const BANNER_LEAD = 850;
-const sound = createAudio({ music: settings.music, effects: settings.effects });
+const sound = createAudio({ music: settings.music, effects: settings.effects, playback: settings.playback });
 window.namedSound = { debug: () => sound.debug() };
 for (const type of ["pointerup", "touchend", "keydown", "click"]) {
   window.addEventListener(type, (e) => {
     if (type === "keydown" && (e.key === "Escape" || e.metaKey || e.ctrlKey || e.altKey)) return;
+    const first = !sound.unlocked;
     sound.unlock();
+    if (first && sound.unlocked) setTimeout(maybeSoundHint, 700);
   }, { capture: true, passive: true });
+}
+
+/** "off" (music and effects off), "silent" (on, but the iPhone's silent switch mutes it) or "on". */
+function soundMode() {
+  if (!(settings.music || settings.effects)) return "off";
+  return settings.playback || !hasAudioSession() ? "on" : "silent";
+}
+
+/** Once, on iPhone and iPad: most sit on silent, which mutes the show until the player opts in. */
+function maybeSoundHint() {
+  if (!isIOS() || soundMode() !== "silent" || readStore(STORAGE + ":soundHint", false)) return;
+  if (document.querySelector(".overlay.open")) return setTimeout(maybeSoundHint, 1500);
+  writeStore(STORAGE + ":soundHint", true);
+  showSoundHint(els.soundBtn);
 }
 window.addEventListener("pointerdown", (e) => {
   if (e.target.closest?.(".brass-btn, .puzzle-switch, .icon-btn, .switch, .close")) sound.play("ui_tap");
@@ -212,6 +238,7 @@ function loadSettings() {
     seenHelp: false,
     music: true,
     effects: true,
+    playback: false,
     ...saved,
   };
 }
@@ -262,10 +289,14 @@ function applySettings() {
   toggleSwitch(els.hardSwitch, settings.hardMode);
   toggleSwitch(els.musicSwitch, settings.music);
   toggleSwitch(els.effectsSwitch, settings.effects);
-  const soundOn = settings.music || settings.effects;
-  els.soundBtn.classList.toggle("muted", !soundOn);
-  els.soundBtn.setAttribute("aria-pressed", String(soundOn));
-  els.soundBtn.setAttribute("aria-label", soundOn ? "Sound on" : "Sound off");
+  const mode = soundMode();
+  els.soundBtn.classList.toggle("muted", mode === "off");
+  els.soundBtn.classList.toggle("silent", mode === "silent");
+  els.soundBtn.dataset.mode = mode;
+  els.soundBtn.setAttribute("aria-pressed", String(mode === "on"));
+  els.soundBtn.setAttribute("aria-label", mode === "off"
+    ? "Sound off"
+    : mode === "silent" ? "Sound follows the silent switch. Tap to play through it" : "Sound on");
 }
 
 function toggleSwitch(el, on) {
@@ -347,6 +378,8 @@ function showLock(reason) {
   toast(puzzles.lockMessage(reason), 4200);
   if (!els.history.classList.contains("open")) openPuzzles();
   const lock = document.getElementById("puzzlesLock");
+  // The Long name's card sits right under the extras; the archive's stays above the first locked number.
+  if (lock && reason === "long") els.puzzleList.querySelector(".puzzles-extras")?.after(lock);
   if (lock) {
     lock.hidden = false;
     lock.classList.remove("nudge");
@@ -354,6 +387,13 @@ function showLock(reason) {
     lock.classList.add("nudge");
     lock.scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth", block: "nearest" });
   }
+}
+
+function bonusStatus() {
+  const today = localDateKey();
+  const bonus = obscureGame?.puzzle?.dateKey === today ? obscureGame : readStore(STORAGE + ":obscure", null);
+  if (bonus?.puzzle?.dateKey !== today || bonus.status === "playing") return { kind: bonus?.guesses?.length ? "playing" : "unplayed", label: bonus?.guesses?.length ? "In progress" : "Play" };
+  return bonus.status === "won" ? { kind: "solved", label: `Solved in ${bonus.guesses.length}` } : { kind: "missed", label: "Missed" };
 }
 
 function openPuzzles() {
@@ -364,6 +404,8 @@ function openPuzzles() {
     todayGame: dailyGame?.puzzle?.dateKey === today ? dailyGame : mode === "daily" ? game : null,
     onPlay: (dateKey) => (dateKey === today ? returnToDaily() : playPast(dateKey)),
     onLocked: (_, reason) => showLock(reason),
+    bonus: bonusStatus(),
+    onBonus: switchToObscure,
   });
   if (!els.history.classList.contains("open")) openOverlay("historyOverlay");
 }
@@ -471,42 +513,61 @@ function paintOutcome({ phase = "done", drop = false, rise = false } = {}) {
   }
 }
 
-/** The stub's primary next step: the most recent past number still free to play, then the bonus name. */
-function paintNextAction() {
+/** The primary next step after a finish: the most recent past number still free to play, then the bonus name, then the list. */
+function nextAction() {
   const today = localDateKey();
   const next = puzzles.nextPast(today);
-  const full = els.nextNameBtn.querySelector(".next-name-full");
-  const compact = els.nextNameBtn.querySelector(".next-name-compact");
   const left = puzzles.freeLeft(today);
   const obscureDone = obscureGame?.puzzle?.dateKey === today && obscureGame.status !== "playing";
+  const spent = left ? "" : "That’s today’s free past puzzles. More at midnight.";
   if (next) {
     const n = puzzleNumber(next);
     const when = dayLabel(next, today);
     const started = puzzles.status(next, today).kind === "playing";
-    full.textContent = `${started ? "Finish" : "Play"} #${n} `;
-    const day = document.createElement("small");
-    day.textContent = `(${when === "Yesterday" ? "yesterday" : when})`;
-    full.append(day);
-    compact.textContent = `Play #${n}`;
-    els.nextNameBtn.setAttribute("aria-label", `${started ? "Finish" : "Play"} Daily #${n}, ${when}`);
-    els.nextNameBtn.onclick = () => playPast(next);
-    els.pastFreeNote.textContent = started ? "Already started · doesn’t use a free puzzle" : freeLine(left);
-    els.pastFreeNote.hidden = false;
-  } else if (mode !== "obscure" && !obscureDone) {
-    full.textContent = "Play the bonus name";
-    compact.textContent = "Bonus name";
-    els.nextNameBtn.setAttribute("aria-label", "Bonus name: a rarer five-letter name, new every midnight");
-    els.nextNameBtn.onclick = switchToObscure;
-    els.pastFreeNote.textContent = left ? "" : "That’s today’s free past puzzles. More at midnight.";
-    els.pastFreeNote.hidden = !els.pastFreeNote.textContent;
-  } else {
-    full.textContent = "All puzzles";
-    compact.textContent = "Puzzles";
-    els.nextNameBtn.setAttribute("aria-label", "All puzzles");
-    els.nextNameBtn.onclick = openPuzzles;
-    els.pastFreeNote.textContent = left ? "" : "That’s today’s free past puzzles. More at midnight.";
-    els.pastFreeNote.hidden = !els.pastFreeNote.textContent;
+    const verb = started ? "Finish" : "Play";
+    return {
+      label: `${verb} #${n}`, day: when === "Yesterday" ? "yesterday" : when, compact: `Play #${n}`,
+      aria: `${verb} Daily #${n}, ${when}`, run: () => playPast(next),
+      note: started ? "Already started · doesn’t use a free puzzle" : freeLine(left),
+      shortNote: started ? "Already started" : `${left} of 3 free today`,
+    };
   }
+  if (mode !== "obscure" && !obscureDone) {
+    return {
+      label: "Play the bonus name", day: "", compact: "Bonus name", aria: "Bonus name: a rarer five-letter name, new every midnight",
+      run: switchToObscure, note: spent, shortNote: "A rarer five-letter name, new every midnight",
+    };
+  }
+  return { label: "All puzzles", day: "", compact: "Puzzles", aria: "All puzzles", run: openPuzzles, note: spent, shortNote: spent };
+}
+
+function paintNextAction() {
+  const next = nextAction();
+  const full = els.nextNameBtn.querySelector(".next-name-full");
+  full.textContent = next.day ? `${next.label} ` : next.label;
+  if (next.day) {
+    const day = document.createElement("small");
+    day.textContent = `(${next.day})`;
+    full.append(day);
+  }
+  els.nextNameBtn.querySelector(".next-name-compact").textContent = next.compact;
+  els.nextNameBtn.setAttribute("aria-label", next.aria);
+  els.nextNameBtn.onclick = next.run;
+  els.pastFreeNote.textContent = next.note;
+  els.pastFreeNote.hidden = !next.note;
+  paintUpNext(next);
+}
+
+/** The curtain call at the very end of the finished page, so the next step is where the reading ends. */
+function paintUpNext(next = nextAction()) {
+  const won = game.status === "won";
+  els.upNextKicker.textContent = won ? "Curtain call · take a bow" : "Curtain call · the show goes on";
+  els.upNextLabel.textContent = next.day ? `${next.label} · ${next.day}` : next.label;
+  els.upNextBtn.setAttribute("aria-label", next.aria);
+  els.upNextBtn.onclick = next.run;
+  els.upNextNote.textContent = next.shortNote;
+  els.upNextNote.hidden = !next.shortNote;
+  els.upNextTomorrow.textContent = `Come back tomorrow for Daily #${puzzleNumber(localDateKey()) + 1}`;
 }
 
 function layoutBulbs(host, chase = true) {
@@ -698,6 +759,7 @@ function bindChrome() {
   document.getElementById("friendsBtn").onclick = openFriends;
   document.getElementById("statsFriendsBtn").onclick = () => { closeOverlay("statsOverlay"); openFriends(); };
   document.getElementById("historyBtn").onclick = openPuzzles;
+  document.getElementById("statsLongBtn").onclick = () => showLock("long");
   els.puzzlesLink.onclick = openPuzzles;
   els.stubPuzzlesBtn.onclick = openPuzzles;
   document.getElementById("createGroupBtn").onclick = () => {
@@ -725,20 +787,26 @@ function bindChrome() {
     saveSettings();
     applySettings();
   };
+  // Off → on (through the silent switch); silent-switch → on; on → off.
   els.soundBtn.onclick = () => {
-    const on = !(settings.music || settings.effects);
+    const mode = soundMode();
+    const on = mode !== "on";
     settings.music = on;
     settings.effects = on;
+    if (on) settings.playback = true;
     saveSettings();
     applySettings();
+    sound.setPlayback(settings.playback);
     sound.setEffects(on);
     sound.setMusic(on);
-    toast(on ? "Music and sound on" : "Sound off");
+    toast(!on ? "Sound off" : hasAudioSession() ? "Music and sound on, even on silent" : "Music and sound on");
   };
   els.musicSwitch.onclick = () => {
     settings.music = !settings.music;
+    if (settings.music) settings.playback = true;
     saveSettings();
     applySettings();
+    sound.setPlayback(settings.playback);
     sound.setMusic(settings.music);
   };
   els.effectsSwitch.onclick = () => {
@@ -773,6 +841,11 @@ function bindChrome() {
   };
   els.shareBtn.onclick = share;
   els.stubShareBtn.onclick = share;
+  els.upNextShare.onclick = share;
+  els.upNextTop.onclick = () => {
+    window.scrollTo({ top: 0, behavior: reducedMotion.matches ? "auto" : "smooth" });
+    els.stubShareBtn.focus({ preventScroll: true, focusVisible: keyboardUser });
+  };
   els.stubStatsBtn.onclick = () => {
     paintStats();
     openOverlay("statsOverlay");
@@ -969,6 +1042,7 @@ function tickCountdown() {
   const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
   els.countdown.textContent = `${h}:${m}:${s}`;
   els.stubCountdown.textContent = `${h}:${m}:${s}`;
+  els.upNextCountdown.textContent = `${h}:${m}:${s}`;
 }
 
 function shakeCurrent() {

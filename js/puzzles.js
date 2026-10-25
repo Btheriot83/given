@@ -316,8 +316,15 @@ export function createPuzzles({ prefix, readStore, writeStore, toast, fetchImpl 
   }
 
   /** Paints the Daily #N list, newest first. */
-  function renderList(list, { today, todayGame, onPlay, onLocked }) {
+  function renderList(list, { today, todayGame, onPlay, onLocked, bonus, onBonus }) {
     list.replaceChildren();
+    const extras = document.createElement("div");
+    extras.className = "puzzles-extras";
+    extras.append(
+      extraRow({ title: "Bonus name", detail: BONUS_DETAIL, kind: bonus?.kind || "unplayed", label: bonus?.label || "Play", onClick: onBonus }),
+      extraRow({ title: "Long name", detail: LONG_DETAIL, kind: "locked", label: "Named+", onClick: () => onLocked(null, "long") }),
+    );
+    list.append(extras);
     const left = freeLeft(today);
     const info = document.createElement("div");
     info.className = "puzzles-free";
@@ -343,17 +350,29 @@ export function createPuzzles({ prefix, readStore, writeStore, toast, fetchImpl 
     }
   }
 
+  function extraRow({ title, detail, kind, label, onClick }) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "puzzle-row extra-row";
+    row.dataset.kind = kind;
+    row.innerHTML = `<span class="pr-extra"><b>${title}</b><span>${detail}</span></span><span class="pr-status">${kind === "locked" ? LOCK_SVG : ""}${label}</span>`;
+    row.setAttribute("aria-label", `${title}: ${detail}. ${kind === "locked" ? "Locked, Named+ on iPhone" : label}`);
+    row.onclick = onClick;
+    return row;
+  }
+
   function lockCard() {
     const lock = document.createElement("aside");
     lock.className = "puzzles-lock";
     lock.id = "puzzlesLock";
     lock.innerHTML = `${LOCK_SVG}<strong>Every number, any day</strong>
-      <p>Named+ unlocks the whole archive with no daily limit. It lives in the Named iPhone app.</p>
+      <p>Named+ unlocks the whole archive with no daily limit, plus the Long name every day. It lives in the Named iPhone app.</p>
       <a class="brass-btn" href="${APP_STORE_URL}" target="_blank" rel="noopener">Get Named for iPhone</a>`;
     return lock;
   }
 
   function lockMessage(reason) {
+    if (reason === "long") return "The Long name is a Named+ extra: a seven-letter name every day, in the Named iPhone app.";
     return reason === "limit"
       ? "That’s your 3 free past puzzles for today. More at midnight, or every number with Named+ on iPhone."
       : `Free past puzzles go back ${FREE_PAST_WINDOW_DAYS} days. Older numbers come with Named+ on iPhone.`;
@@ -386,6 +405,9 @@ export function createPuzzles({ prefix, readStore, writeStore, toast, fetchImpl 
     flushPending, paintVs, paintRank, renderList, lockMessage, burst, toast,
   };
 }
+
+export const BONUS_DETAIL = "A rarer five-letter name, new every midnight";
+export const LONG_DETAIL = "A seven-letter name, new every day (the tough one)";
 
 export function dayLabel(dateKey, today) {
   if (dateKey === today) return "Today";
