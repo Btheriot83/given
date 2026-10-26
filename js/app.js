@@ -28,6 +28,7 @@ import {
 } from "./name-story.js";
 import { createAudio, hasAudioSession } from "./audio.js";
 import { isIOS, showSoundHint } from "./sound-hint.js";
+import { createJackpot, JACKPOT } from "./jackpot.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
@@ -176,6 +177,7 @@ let beamFrame = 0;
 const WIN_HOLD = 1400;
 const BANNER_LEAD = 850;
 const sound = createAudio({ music: settings.music, effects: settings.effects, playback: settings.playback });
+const jackpot = createJackpot({ sound, reducedMotion });
 window.namedSound = { debug: () => sound.debug() };
 for (const type of ["pointerup", "touchend", "keydown", "click"]) {
   window.addEventListener(type, (e) => {
@@ -697,7 +699,7 @@ function renderBoard() {
         state = ev[c];
         label = `${ch} ${ev[c]}`;
       } else {
-        tile.classList.remove("flip", "landed", "lift");
+        tile.classList.remove("flip", "landed", "lift", "jp-ding");
         state = ch ? "tbd" : "empty";
         label = ch || "empty";
       }
@@ -963,10 +965,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * The finish, in the app's three beats (GameScreen.playWinMoment): on a win the full board
- * holds while the winning row chases and the fanfare starts; then the spotlights sweep down as
- * NOW PLAYING drops in; then the board collapses and the ticket stub slides up. A loss is the
- * quiet version: one soft spot, the banner and the stub. Under reduced motion it all simply
- * appears.
+ * holds for the Jackpot show (js/jackpot.js: the row dings, the bulbs race, the tier sign drops
+ * in, confetti flies); at its 2.8 s hand-off the sign shrinks into the heading as NOW PLAYING
+ * drops in under the spotlights; then the board collapses and the ticket stub slides up. A tap
+ * skips straight to the stub. A loss is the quiet version: one soft spot, the banner and the
+ * stub. Under reduced motion it all simply appears (the sign only fades in and out).
  */
 async function finishShow(won) {
   const motion = !reducedMotion.matches;
@@ -974,40 +977,44 @@ async function finishShow(won) {
   const stale = () => token !== showToken || game.status === "playing";
   holdingBoard = motion;
   renderBoard();
+  let skipped = false;
   if (won) {
+    const row = els.board.children[game.guesses.length - 1];
+    row?.classList.add("chasing");
     celebrate();
-    els.board.children[game.guesses.length - 1]?.classList.add("chasing");
+    const show = jackpot.play({ row, guesses: game.guesses.length, target: () => els.marqueePill });
     if (motion) {
-      liftWin();
-      await sleep(WIN_HOLD);
+      skipped = await show;
       if (stale()) return;
     }
   }
-  if (motion) {
+  if (motion && !skipped) {
     paintOutcome({ phase: "banner", drop: true });
     spotlights(won ? "won" : "lost");
-    await sleep(won ? BANNER_LEAD : 650);
+    skipped = await jackpot.hold(won ? BANNER_LEAD : 650);
     if (stale()) return;
-    els.app.classList.add("collapsing");
-    await sleep(220);
-    els.app.classList.remove("collapsing");
-    if (stale()) return;
-  } else {
+    if (!skipped) {
+      els.app.classList.add("collapsing");
+      await sleep(220);
+      els.app.classList.remove("collapsing");
+      if (stale()) return;
+    }
+  } else if (!motion) {
     spotlights(won ? "won" : "lost");
   }
   holdingBoard = false;
   renderBoard();
   if (won) els.board.children[game.guesses.length - 1]?.classList.add("chasing");
-  paintOutcome({ phase: "done", rise: motion });
-  sound.play("ticket_tear", { delay: won ? (motion ? 0.15 : 0.9) : 0.25 });
+  paintOutcome({ phase: "done", rise: motion && !skipped });
+  jackpot.release();
+  sound.play("ticket_tear", { delay: won ? (motion && !skipped ? 0.15 : 0.9) : 0.25 });
 }
 
-/** The fanfare, the marquee lit up and the bulbs racing, for 4.2 seconds. */
+/** The fanfare (landing with the confetti cannons), the neon flare and the house spot, for 4.2 seconds. */
 function celebrate() {
   // Fanfare B for a plain daily win; fanfare A for the bonus name, streak milestones,
-  // a new best streak and one- or two-guess wins.
-  sound.playWin(mode === "daily" && !moment?.big);
-  puzzles.burst(moment, reducedMotion.matches);
+  // a new best streak and one- or two-guess wins. The Jackpot canvas replaces the old streamers.
+  sound.playWin(mode === "daily" && !moment?.big, { lead: JACKPOT.cannonsAt });
   document.documentElement.classList.toggle("celebrating-big", Boolean(moment?.big));
   document.documentElement.classList.add("celebrating");
   clearTimeout(celebrateTimer);
@@ -1078,18 +1085,6 @@ function flipRow(rowIndex, evaluation, guess) {
         if (i === tiles.length - 1) setTimeout(resolve, 520);
       }, i * 300);
     });
-  });
-}
-
-function liftWin() {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return Promise.resolve();
-  const row = els.board.children[game.guesses.length - 1];
-  const tiles = [...row.children];
-  return new Promise((resolve) => {
-    tiles.forEach((tile, i) => {
-      setTimeout(() => tile.classList.add("lift"), i * 80);
-    });
-    setTimeout(resolve, 700);
   });
 }
 
@@ -1594,6 +1589,7 @@ function returnToDaily() {
 /** Leaving a round mid-show: stop the beams and the celebration. */
 function stopShow() {
   showToken++;
+  jackpot.stop();
   holdingBoard = false;
   revealing = false;
   cancelAnimationFrame(beamFrame);

@@ -1,0 +1,193 @@
+/* ---------- Jackpot: the win show (js/jackpot.js) ----------
+   The board dings, the bulbs race then flash, a marquee sign drops in and lights letter by
+   letter, confetti cannons fire. Transform and opacity only; the paper is one canvas. */
+
+/* 0.0 s: each winning tile pops 1 → 1.25 → 1 and flashes white-hot. */
+.tile.jp-ding { animation: jp-ding .34s cubic-bezier(.3, 1.3, .5, 1) both; z-index: 2; }
+.jp-hot {
+  position: absolute;
+  inset: -12%;
+  z-index: 3;
+  border-radius: calc(var(--r) * 1.4);
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, #fff 0 34%, rgba(255, 246, 214, .85) 52%, rgba(255, 211, 122, .35) 70%, rgba(255, 211, 122, 0) 82%);
+  opacity: 0;
+  animation: jp-hot .5s ease-out both;
+}
+@keyframes jp-ding {
+  0% { transform: scale(1); }
+  42% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes jp-hot {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 0.6 s: the page's bulbs keep their normal pace until the race starts (overrides .celebrating)... */
+:root.jp-show .bulbs-chase .ph0, :root.jp-show .bulbs-chase .ph1, :root.jp-show .bulbs-chase .ph2 { animation-duration: 2.1s; }
+:root.jp-show .bulbs-chase .ph1 { animation-delay: -.7s; }
+:root.jp-show .bulbs-chase .ph2 { animation-delay: -1.4s; }
+/* ...then chase fast for 1.2 s... */
+:root.jp-chase .bulbs-chase .ph0, :root.jp-chase .bulbs-chase .ph1, :root.jp-chase .bulbs-chase .ph2 { animation-duration: .3s; }
+:root.jp-chase .bulbs-chase .ph1 { animation-delay: -.1s; }
+:root.jp-chase .bulbs-chase .ph2 { animation-delay: -.2s; }
+:root.jp-chase .tw { animation-duration: .6s; }
+/* ...then all flash together three times (under reduced motion: once). */
+:root.jp-flash .bulbs-chase .ph0, :root.jp-flash .bulbs-chase .ph1, :root.jp-flash .bulbs-chase .ph2,
+:root.jp-flash-once .bulbs .ph0, :root.jp-flash-once .bulbs .ph1, :root.jp-flash-once .bulbs .ph2 { animation: none; opacity: 1; }
+:root.jp-flash svg.bulbs, :root.jp-flash .row.chasing .tile::after { animation: jp-bulb-flash .28s steps(1, end) 3 both; }
+:root.jp-flash-once svg.bulbs { animation: jp-bulb-flash .45s steps(1, end) 1 both; }
+@keyframes jp-bulb-flash {
+  0% { opacity: 1; }
+  55% { opacity: .12; }
+}
+
+/* 0.7 s: the marquee sign, hung over the stage. */
+.jp-sign {
+  position: fixed;
+  z-index: 27;
+  left: 0;
+  right: 0;
+  top: max(calc(env(safe-area-inset-top) + 200px), 31vh);
+  width: min(calc(100vw - 24px), 392px);
+  margin: 0 auto;
+  pointer-events: none;
+}
+.jp-swing { transform-origin: 50% -40vh; }
+.jp-sign.drop .jp-swing { animation: jp-drop .62s cubic-bezier(.2, 1.25, .45, 1) both; }
+.jp-sign.calm .jp-swing { animation: jp-fade .4s ease-out both; }
+.jp-sign.out .jp-swing {
+  animation: jp-away .5s cubic-bezier(.55, 0, .75, .4) both;
+}
+.jp-sign.calm.out .jp-swing { animation: jp-fade .4s ease-in reverse both; }
+@keyframes jp-drop {
+  0% { opacity: 0; transform: translateY(-62vh) rotate(-4deg); }
+  30% { opacity: 1; }
+  62% { transform: translateY(10px) rotate(2deg); }
+  82% { transform: translateY(-4px) rotate(-.8deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes jp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes jp-away {
+  0% { opacity: 1; transform: none; }
+  25% { opacity: 1; transform: translateY(6px) scale(1.04); }
+  100% { opacity: 0; transform: translate(var(--jp-dx, 0px), var(--jp-dy, -40vh)) scale(var(--jp-s, .3)); }
+}
+
+.jp-frame {
+  position: relative;
+  padding: 26px 18px;
+  border-radius: 22px;
+  background: var(--brass-grad);
+  box-shadow: 0 0 46px rgba(255, 154, 60, .55), 0 0 120px rgba(255, 211, 122, .28), 0 14px 30px rgba(0, 0, 0, .65);
+  overflow: hidden;
+}
+.jp-frame::before {
+  content: "";
+  position: absolute;
+  inset: 3.5px;
+  border-radius: 19px;
+  background: radial-gradient(circle at 50% 0%, #6e1a12, var(--sign-red-deep) 70%);
+}
+.jp-ring { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.jp-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* The puzzle board: one lit tile per letter. */
+.jp-board {
+  --gap: 5px;
+  --lt: min(calc((100vw - 24px - 36px - 20px - (var(--n) - 1) * var(--gap)) / var(--n)), 44px);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: var(--gap);
+  padding: 10px 10px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #2a0d07, #170604);
+  box-shadow: inset 0 0 0 1.5px rgba(201, 149, 59, .7), inset 0 4px 10px rgba(0, 0, 0, .6);
+}
+.jp-letter {
+  position: relative;
+  width: var(--lt);
+  height: calc(var(--lt) * 1.4);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #1c5a35, #0f3a22);
+  box-shadow: inset 0 0 0 1.5px rgba(201, 149, 59, .65), 0 2px 3px rgba(0, 0, 0, .55);
+}
+.jp-face, .jp-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  font-style: normal;
+}
+.jp-face {
+  display: grid;
+  place-items: center;
+  padding-top: 2px;
+  background: linear-gradient(180deg, var(--cream-hi), var(--cream) 60%, #dcc592);
+  box-shadow: inset 0 0 0 1.5px var(--brass), 0 0 14px rgba(255, 236, 190, .55);
+  color: var(--ink);
+  font-family: var(--slab);
+  font-size: calc(var(--lt) * .82);
+  line-height: 1;
+  opacity: 0;
+}
+.jp-glare {
+  inset: -18%;
+  background: radial-gradient(circle, #fff 0 36%, rgba(255, 246, 214, .7) 55%, rgba(255, 246, 214, 0) 75%);
+  opacity: 0;
+}
+.jp-sign.drop .jp-letter { animation: jp-letter .26s calc(.22s + var(--i) * .075s) cubic-bezier(.3, 1.5, .5, 1) both; }
+.jp-sign.drop .jp-face { animation: jp-on .01s calc(.22s + var(--i) * .075s) both; }
+.jp-sign.drop .jp-glare { animation: jp-hot .45s calc(.22s + var(--i) * .075s) ease-out both; }
+.jp-sign.calm .jp-face { opacity: 1; }
+@keyframes jp-letter {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+@keyframes jp-on { to { opacity: 1; } }
+
+/* The gold spotlight sweeping across the board. */
+.jp-sweep {
+  position: absolute;
+  z-index: 3;
+  top: -30%;
+  bottom: -30%;
+  left: 0;
+  width: 42%;
+  pointer-events: none;
+  background: linear-gradient(100deg, rgba(255, 211, 122, 0), rgba(255, 226, 160, .55) 45%, rgba(255, 250, 230, .7) 50%, rgba(255, 226, 160, .55) 55%, rgba(255, 211, 122, 0));
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translateX(-110%) skewX(-12deg);
+}
+.jp-sign.drop .jp-sweep { animation: jp-sweep 1.05s .32s ease-in-out 2 both; }
+@keyframes jp-sweep {
+  0% { opacity: 0; transform: translateX(-110%) skewX(-12deg); }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(260%) skewX(-12deg); }
+}
+
+/* JACKPOT! burns brighter. */
+.jp-sign[data-tier="jackpot"] .jp-frame { box-shadow: 0 0 60px rgba(255, 190, 80, .75), 0 0 150px rgba(255, 211, 122, .4), 0 14px 30px rgba(0, 0, 0, .65); }
+
+/* 0.8 s: confetti, coins and stars all on one canvas over everything but the sheets. */
+.jp-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile.jp-ding, .jp-hot { animation: none; }
+}

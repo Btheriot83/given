@@ -26,6 +26,10 @@ const EFFECTS = {
   curtain_whoosh: 0.7,
   ticket_tear: 0.85,
   win_sparkle: 0.85,
+  // The Jackpot win show (js/jackpot.js): six rising bell dings and a studio-audience cheer.
+  jackpot_chime_1: 0.5, jackpot_chime_2: 0.5, jackpot_chime_3: 0.5,
+  jackpot_chime_4: 0.5, jackpot_chime_5: 0.5, jackpot_chime_6: 0.5,
+  jackpot_cheer: 0.6,
 };
 const LOOPS = { daily: "music_loop", late: "music_loop_alt" };
 const FANFARES = { a: "win_fanfare", b: "win_fanfare_alt" };
@@ -106,17 +110,22 @@ export function createAudio({ music = true, effects = true, playback = false } =
 
   // ---------- Effects ----------
 
-  /** Plays an effect after `delay` seconds. The same sound never fires twice within 40 ms. */
-  function play(name, { delay = 0, gain = 1, maxDuration = null } = {}) {
-    if (!ctx || !state.effects || !(name in EFFECTS)) return;
+  /**
+   * Plays an effect after `delay` seconds, `rate` times faster (and higher). The same sound never
+   * fires twice within 40 ms. Returns a handle whose `stop()` silences it, even before it starts.
+   */
+  function play(name, { delay = 0, gain = 1, maxDuration = null, rate = 1 } = {}) {
+    if (!ctx || !state.effects || !(name in EFFECTS)) return null;
     const buffer = buffers.get(name);
-    if (!buffer) { load(name); return; }
+    if (!buffer) { load(name); return null; }
     const at = now() + Math.max(0, delay);
-    const last = lastPlayed.get(name);
-    if (last !== undefined && Math.abs(at - last) < 0.04) return;
-    lastPlayed.set(name, at);
+    const key = rate === 1 ? name : `${name}@${rate}`;
+    const last = lastPlayed.get(key);
+    if (last !== undefined && Math.abs(at - last) < 0.04) return null;
+    lastPlayed.set(key, at);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
+    if (rate !== 1) source.playbackRate.value = rate;
     const level = ctx.createGain();
     level.gain.value = EFFECTS[name] * gain;
     source.connect(level).connect(ctx.destination);
@@ -127,6 +136,19 @@ export function createAudio({ music = true, effects = true, playback = false } =
       level.gain.linearRampToValueAtTime(0, at + maxDuration + 0.072);
       source.stop(at + maxDuration + 0.08);
     }
+    return {
+      /** Stops it: a not-yet-started sound never plays; a playing one fades out over `fade` s. */
+      stop(fade = 0.08) {
+        try {
+          const t = now();
+          if (t < at) { source.stop(); return; }
+          level.gain.cancelScheduledValues(t);
+          level.gain.setValueAtTime(level.gain.value, t);
+          level.gain.linearRampToValueAtTime(0, t + fade);
+          source.stop(t + fade + 0.02);
+        } catch { /* already stopped */ }
+      },
+    };
   }
 
   /** Rotates the three key-tap takes, never the same one twice in a row. */
@@ -192,17 +214,19 @@ export function createAudio({ music = true, effects = true, playback = false } =
 
   /**
    * The win: the loop fades out over 0.3 s, then the sparkle and the fanfare play together and
-   * the loop comes back afterwards. `alternate` is fanfare B (plain daily wins).
+   * the loop comes back afterwards. `alternate` is fanfare B (plain daily wins). `lead` is when
+   * the fanfare lands, in seconds from now (the Jackpot show fires it with the confetti at 0.8 s).
    */
-  async function playWin(alternate) {
+  async function playWin(alternate, { lead = 0.3 } = {}) {
     if (!ctx) return;
     clearTimeout(holdTimer);
     holding = true;
     if (loop) ramp(loop.gain.gain, 0, 0.3);
+    const target = now() + Math.max(lead, 0.3);
     const name = FANFARES[alternate ? "b" : "a"];
     const fanfare = state.effects || state.music ? await load(name) : null;
-    const start = now() + 0.3;
-    play("win_sparkle", { delay: 0.3 });
+    const start = Math.max(target, now());
+    play("win_sparkle", { delay: start - now() });
     let length = 2.5;
     if (fanfare) {
       const source = ctx.createBufferSource();
@@ -214,7 +238,7 @@ export function createAudio({ music = true, effects = true, playback = false } =
     holdTimer = setTimeout(() => {
       holding = false;
       if (musicShouldPlay()) startMusic(1.5);
-    }, (0.3 + length + 0.3) * 1000);
+    }, (start - now() + length + 0.3) * 1000);
   }
 
   // ---------- Settings and the tab ----------
