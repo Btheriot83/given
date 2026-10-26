@@ -12,6 +12,10 @@
   "redirects": [
     { "source": "/join/:code", "destination": "/?group=:code", "permanent": false }
   ],
+  "rewrites": [
+    { "source": "/api/account/:action", "destination": "/api/account?action=:action" },
+    { "source": "/api/config", "destination": "/api/account?action=config" }
+  ],
   "headers": [
     {
       "source": "/.well-known/apple-app-site-association",

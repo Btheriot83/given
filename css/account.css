@@ -1,0 +1,87 @@
+/* Accounts: the "Save your streak" ticket, the Stats line and the Settings rows.
+   Cream ticket, brass trim, Apple's black button (per Apple's Sign in with Apple guidelines). */
+
+.account-ticket[hidden], .account-line[hidden], .account-settings[hidden],
+.account-settings [hidden] { display: none; }
+
+.account-ticket .ticket-face {
+  display: grid;
+  gap: 6px;
+  padding: 20px 26px 18px;
+  text-align: left;
+}
+.account-ticket h3 {
+  margin: 0;
+  font-family: var(--slab);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.account-ticket .prompt-lead { margin: 0 0 6px; }
+
+.account-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.account-actions .text-link {
+  width: auto;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 16px;
+}
+
+.apple-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #000;
+  color: #fff;
+  font: 600 17px/1 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -.01em;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--brass-lo), 0 4px 8px rgba(0, 0, 0, .3);
+  -webkit-tap-highlight-color: transparent;
+}
+.apple-btn:active { transform: translateY(1px); }
+.apple-btn:disabled { opacity: .6; cursor: progress; }
+.apple-btn:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 3px; }
+.apple-logo { width: 17px; height: 17px; margin-top: -3px; flex-shrink: 0; }
+
+/* Stats: one small line under the rank. */
+.account-line {
+  margin: -6px 0 14px;
+  text-align: center;
+  font-family: var(--marquee);
+  font-size: 14px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.account-line[data-state="out"] { text-transform: none; letter-spacing: 0; }
+.account-line .apple-btn { width: auto; min-height: 40px; font-size: 15px; }
+
+/* Settings */
+.account-settings .settings-row { border-bottom: 0; }
+.account-settings .small-btn { flex-shrink: 0; }
+.account-signin { padding: 2px 0 10px; }
+.account-delete {
+  min-height: 44px;
+  color: #8e1a16;
+  text-align: left;
+}
+.account-delete:disabled { opacity: .6; }
+
+@media (max-width: 380px) {
+  .account-ticket .ticket-face { padding: 18px 18px 16px; }
+  .account-actions { grid-template-columns: 1fr; }
+  .account-actions .text-link { justify-self: center; }
+}

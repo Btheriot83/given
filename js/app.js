@@ -29,6 +29,7 @@ import {
 import { createAudio, hasAudioSession } from "./audio.js";
 import { isIOS, showSoundHint } from "./sound-hint.js";
 import { createJackpot, JACKPOT } from "./jackpot.js";
+import { createAccount } from "./account.js";
 
 const KEYS = ["QWERTYUIOP".split(""), "ASDFGHJKL".split(""), ["ENTER", ..."ZXCVBNM".split(""), "DEL"]];
 const STORAGE = "given-v2";
@@ -168,6 +169,24 @@ let pastGame = null;
 let moment = null;
 const puzzles = createPuzzles({ prefix: STORAGE, readStore, writeStore, toast });
 let friends = readStore(STORAGE + ":friends", { group: "", nickname: "", playerId: "" });
+// Optional Sign in with Apple (js/account.js). Signed in, the account is canonical for stats and friends.
+const account = createAccount({
+  prefix: STORAGE,
+  readStore,
+  writeStore,
+  toast,
+  getStats: () => stats,
+  setStats: (next) => {
+    stats = { ...stats, ...next };
+    saveStats();
+    if (game) paintStats();
+  },
+  getFriends: () => friends,
+  setFriends: (next) => {
+    friends = next;
+    writeStore(STORAGE + ":friends", friends);
+  },
+});
 let postState = { key: "", status: "idle", message: "" };
 let storyDataPromise = null;
 let holdingBoard = false;
@@ -223,6 +242,7 @@ try {
   guessSet = new Set(names.guesses.map((n) => n.toUpperCase()));
   harvestOldDaily();
   bootDaily();
+  account.init();
   puzzles.flushPending();
   window.addEventListener("online", () => puzzles.flushPending());
   if (invitedGroup && invitedGroup !== friends.group) toast("Friend code ready — tap the trophy to join", 4000);
@@ -510,6 +530,7 @@ function paintOutcome({ phase = "done", drop = false, rise = false } = {}) {
     paintNameNote(game.puzzle.name);
     paintBoardPrompt();
     puzzles.paintVs(els.vsCard, game);
+    account.paintPrompt(els.resultStub, game, mode);
   } else {
     els.vsCard.hidden = true;
   }
@@ -1169,6 +1190,7 @@ function recordFinish(won) {
   const daily = mode === "daily";
   moment = finishMoment({ won, guesses: game.guesses.length, daily: false });
   if (mode === "daily" || mode === "past") puzzles.recordResult(game);
+  if (mode === "daily" || mode === "past") account.recordGame(game, mode === "past");
   if (!daily) {
     paintStats();
     return;
@@ -1222,6 +1244,7 @@ function joinBoard(rawCode, rawNickname) {
   friends = { group, nickname, playerId: friends.playerId || crypto.randomUUID() };
   invitedGroup = group;
   writeStore(STORAGE + ":friends", friends);
+  account.syncFriends(friends);
   history.replaceState(null, "", `${location.pathname}?group=${group}`);
   postResult();
   paintBoardPrompt();
@@ -1415,6 +1438,7 @@ function paintStats() {
   } else {
     els.reveal.textContent = "";
   }
+  account.paint();
 }
 
 function fetchJSON(url) {

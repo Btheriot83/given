@@ -72,8 +72,8 @@ export function normalizeInstallId(value) {
   return typeof value === "string" && UUID.test(value) ? value.toLowerCase() : null;
 }
 
-export function readBody(req) {
-  if (Number(req.headers?.["content-length"] || 0) > MAX_BODY_BYTES) throw bad();
+export function readBody(req, limit = MAX_BODY_BYTES) {
+  if (Number(req.headers?.["content-length"] || 0) > limit) throw bad();
   let body;
   try {
     body = req.body;
@@ -82,7 +82,7 @@ export function readBody(req) {
   }
   if (Buffer.isBuffer(body)) body = body.toString("utf8");
   if (typeof body === "string") {
-    if (Buffer.byteLength(body) > MAX_BODY_BYTES) throw bad();
+    if (Buffer.byteLength(body) > limit) throw bad();
     try {
       body = JSON.parse(body);
     } catch {
@@ -152,98 +152,118 @@ function sameSecret(given, expected) {
   return timingSafeEqual(a, b);
 }
 
+/** Upstash REST pipeline, or null when storage isn't connected. */
+export function kvPipeline(env = process.env, fetchImpl = (...args) => fetch(...args)) {
+  const url = env.KV_REST_API_URL;
+  const token = env.KV_REST_API_TOKEN;
+  if (!url || !token) return null;
+  return async function pipeline(commands) {
+    const response = await fetchImpl(`${url.replace(/\/+$/, "")}/pipeline`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(commands),
+    });
+    if (!response.ok) throw new Error("storage");
+    const payload = await response.json();
+    if (!Array.isArray(payload)) throw new Error("storage");
+    return payload.map((item) => {
+      if (item?.error) throw new Error("storage");
+      return item?.result;
+    });
+  };
+}
+
+/** The public summary for one number, with this install's score and overall record. */
+export async function summary(pipeline, number, installId) {
+  if (!installId) {
+    const [stats] = await pipeline([["HGETALL", resKey(number)]]);
+    return buildSummary(number, hashToObject(stats), null, null, null);
+  }
+  const [stats, yourScore, playerRaw] = await pipeline([
+    ["HGETALL", resKey(number)],
+    ["HGET", playersKey(number), installId],
+    ["HMGET", playerKey(installId), "played", "wins", "sum"],
+  ]);
+  const [played, wins, sum] = playerRaw || [];
+  const player = played == null ? { played: 0, wins: 0, sum: 0 } : { played, wins, sum };
+  let rank = null;
+  if (Number(player.played) >= MIN_RANKED) {
+    const average = Number(player.sum) / Number(player.played);
+    // ZADD is idempotent; it also heals an average that a concurrent POST left stale.
+    const [, worse, total] = await pipeline([
+      ["ZADD", RANK_KEY, average, installId],
+      ["ZCOUNT", RANK_KEY, `(${average}`, "+inf"],
+      ["ZCARD", RANK_KEY],
+    ]);
+    rank = { worse: Number(worse) || 0, total: Number(total) || 0 };
+  }
+  return buildSummary(number, hashToObject(stats), yourScore, player, rank);
+}
+
+/** Records one result. The first result per install per number wins; returns true if this one did. */
+export async function record(pipeline, { installId, number, score }) {
+  const [claimed] = await pipeline([["HSETNX", playersKey(number), installId, score]]);
+  if (Number(claimed) !== 1) return false;
+  const won = score < LOSS_SCORE;
+  const pk = playerKey(installId);
+  const [, , played, , sum] = await pipeline([
+    ["HINCRBY", resKey(number), won ? `d${score}` : "x", 1],
+    ["HINCRBY", resKey(number), "n", 1],
+    ["HINCRBY", pk, "played", 1],
+    ["HINCRBY", pk, "wins", won ? 1 : 0],
+    ["HINCRBY", pk, "sum", score],
+    ["HSET", pk, `r${number}`, score],
+    ["EXPIRE", pk, PLAYER_TTL_SECONDS],
+  ]);
+  if (Number(played) >= MIN_RANKED) {
+    await pipeline([["ZADD", RANK_KEY, Number(sum) / Number(played), installId]]);
+  }
+  return true;
+}
+
+/** Every number -> score an install has on record. */
+export async function playerScores(pipeline, installId) {
+  const [raw] = await pipeline([["HGETALL", playerKey(installId)]]);
+  return Object.entries(hashToObject(raw))
+    .filter(([field]) => /^r\d+$/.test(field))
+    .map(([field, value]) => ({ number: Number(field.slice(1)), score: Number(value) }));
+}
+
+/** Removes every result of one install and backs out the counts. True if anything was there. */
+export async function remove(pipeline, installId) {
+  const pk = playerKey(installId);
+  const commands = [];
+  let removed = 0;
+  for (const { number, score } of await playerScores(pipeline, installId)) {
+    const [deleted] = await pipeline([["HDEL", playersKey(number), installId]]);
+    if (Number(deleted) !== 1) continue;
+    removed++;
+    commands.push(["HINCRBY", resKey(number), score < LOSS_SCORE ? `d${score}` : "x", -1]);
+    commands.push(["HINCRBY", resKey(number), "n", -1]);
+  }
+  const [deletedPlayer, zrem] = await pipeline([["DEL", pk], ["ZREM", RANK_KEY, installId], ...commands]);
+  return removed > 0 || Number(deletedPlayer) > 0 || Number(zrem) > 0;
+}
+
+/** Moves one install's history onto another ID (an account). Numbers the target already has keep the target's score. */
+export async function adopt(pipeline, fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return 0;
+  const scores = await playerScores(pipeline, fromId);
+  if (!scores.length) return 0;
+  await remove(pipeline, fromId);
+  let moved = 0;
+  for (const item of scores) if (await record(pipeline, { installId: toId, ...item })) moved++;
+  return moved;
+}
+
 export function createHandler({ env = process.env, fetchImpl = (...args) => fetch(...args), now = () => Date.now() } = {}) {
-  function storage() {
-    const url = env.KV_REST_API_URL;
-    const token = env.KV_REST_API_TOKEN;
-    if (!url || !token) return null;
-    return async function pipeline(commands) {
-      const response = await fetchImpl(`${url.replace(/\/+$/, "")}/pipeline`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        body: JSON.stringify(commands),
-      });
-      if (!response.ok) throw new Error("storage");
-      const payload = await response.json();
-      if (!Array.isArray(payload)) throw new Error("storage");
-      return payload.map((item) => {
-        if (item?.error) throw new Error("storage");
-        return item?.result;
-      });
-    };
-  }
-
-  async function summary(pipeline, number, installId) {
-    if (!installId) {
-      const [stats] = await pipeline([["HGETALL", resKey(number)]]);
-      return buildSummary(number, hashToObject(stats), null, null, null);
-    }
-    const [stats, yourScore, playerRaw] = await pipeline([
-      ["HGETALL", resKey(number)],
-      ["HGET", playersKey(number), installId],
-      ["HMGET", playerKey(installId), "played", "wins", "sum"],
-    ]);
-    const [played, wins, sum] = playerRaw || [];
-    const player = played == null ? { played: 0, wins: 0, sum: 0 } : { played, wins, sum };
-    let rank = null;
-    if (Number(player.played) >= MIN_RANKED) {
-      const average = Number(player.sum) / Number(player.played);
-      // ZADD is idempotent; it also heals an average that a concurrent POST left stale.
-      const [, worse, total] = await pipeline([
-        ["ZADD", RANK_KEY, average, installId],
-        ["ZCOUNT", RANK_KEY, `(${average}`, "+inf"],
-        ["ZCARD", RANK_KEY],
-      ]);
-      rank = { worse: Number(worse) || 0, total: Number(total) || 0 };
-    }
-    return buildSummary(number, hashToObject(stats), yourScore, player, rank);
-  }
-
-  async function record(pipeline, { installId, number, score }) {
-    const [claimed] = await pipeline([["HSETNX", playersKey(number), installId, score]]);
-    if (Number(claimed) !== 1) return; // first result per install per number wins
-    const won = score < LOSS_SCORE;
-    const pk = playerKey(installId);
-    const [, , played, , sum] = await pipeline([
-      ["HINCRBY", resKey(number), won ? `d${score}` : "x", 1],
-      ["HINCRBY", resKey(number), "n", 1],
-      ["HINCRBY", pk, "played", 1],
-      ["HINCRBY", pk, "wins", won ? 1 : 0],
-      ["HINCRBY", pk, "sum", score],
-      ["HSET", pk, `r${number}`, score],
-      ["EXPIRE", pk, PLAYER_TTL_SECONDS],
-    ]);
-    if (Number(played) >= MIN_RANKED) {
-      await pipeline([["ZADD", RANK_KEY, Number(sum) / Number(played), installId]]);
-    }
-  }
+  const storage = () => kvPipeline(env, fetchImpl);
 
   async function rateLimited(pipeline, installId) {
     const window = Math.floor(now() / (RATE_WINDOW_SECONDS * 1000));
     const key = `named:rl:${installId}:${window}`;
     const [count] = await pipeline([["INCR", key], ["EXPIRE", key, RATE_WINDOW_SECONDS]]);
     return Number(count) > RATE_LIMIT;
-  }
-
-  // Admin deletion (privacy requests, test cleanup).
-  async function remove(pipeline, installId) {
-    const pk = playerKey(installId);
-    const [raw] = await pipeline([["HGETALL", pk]]);
-    const player = hashToObject(raw);
-    const results = Object.entries(player).filter(([field]) => /^r\d+$/.test(field));
-    const commands = [];
-    let removed = 0;
-    for (const [field, value] of results) {
-      const number = Number(field.slice(1));
-      const [deleted] = await pipeline([["HDEL", playersKey(number), installId]]);
-      if (Number(deleted) !== 1) continue;
-      removed++;
-      const score = Number(value);
-      commands.push(["HINCRBY", resKey(number), score < LOSS_SCORE ? `d${score}` : "x", -1]);
-      commands.push(["HINCRBY", resKey(number), "n", -1]);
-    }
-    const [deletedPlayer, zrem] = await pipeline([["DEL", pk], ["ZREM", RANK_KEY, installId], ...commands]);
-    return removed > 0 || Number(deletedPlayer) > 0 || Number(zrem) > 0;
   }
 
   async function scanPlayers(pipeline, prefix) {

@@ -50,6 +50,10 @@ https://namedgame.com
 
 The trophy button opens a friends board. Create an eight-character code or join one from a friend's link, choose a nickname, and finish the official daily puzzle. Scores rank by fewest guesses; losses show `X/6`. Obscure and practice rounds do not count. Codes are unlisted, not a privacy or identity guarantee. There is no login, so this is for friendly competition, not a cheat-proof public contest. A device can post once per group per day; entries expire after 90 days. The score endpoint replays submitted guesses against the official daily puzzle and never returns the answer.
 
+## Accounts (optional)
+
+Play never needs an account. After a finished daily, a soft "Save your streak" ticket offers Sign in with Apple; signed in, stats, streak, freezes and friends boards follow the player to any device. The API (`api/account.js`, one function behind the `/api/account/*` and `/api/config` rewrites) is specified in [docs/accounts-api.md](docs/accounts-api.md). The web button stays hidden until the `APPLE_SERVICES_ID` env var exists; Apple token revocation on account deletion needs `APPLE_SIWA_KEY_ID`, `APPLE_SIWA_KEY` and `APPLE_TEAM_ID` and is skipped without them.
+
 ## Name notes
 
 **Statistics → Daily name history** keeps the official daily list from September 26, 2026 onward, newest first, with expandable name facts and 30-day pagination. Past days appear even if you missed them; today appears only after finishing the official puzzle. It is reconstructed from the date-stable schedule, not browser storage, so clearing saves does not erase past names. Future pool/seed changes must preserve this historical schedule (version new schedules by start date rather than rewriting old pools).
